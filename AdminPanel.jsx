@@ -1,0 +1,774 @@
+import { useEffect, useState } from "react";
+
+const serviceEmpty = {
+  name: "",
+  slug: "",
+  price: "",
+  eyebrow: "",
+  detail: "",
+  features: "",
+  image: "",
+  tourPlans: "",
+  isActive: true,
+};
+const pageEmpty = {
+  title: "",
+  slug: "",
+  navigationLabel: "",
+  heroTitle: "",
+  excerpt: "",
+  content: "",
+  isPublished: true,
+};
+
+const blogEmpty = () => ({
+  title: "",
+  slug: "",
+  excerpt: "",
+  content: "",
+  coverImage: "",
+  author: "ChalakGo Team",
+  isPublished: true,
+  publishedAt: new Date().toISOString().slice(0, 10),
+});
+const slugify = (value) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+const api = async (path, options = {}) => {
+  const token = sessionStorage.getItem("chalakgo_admin_token");
+  const response = await fetch(`https://chalakgo.onrender.com${path}`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+    ...options,
+  });
+  if (response.status === 204) return null;
+  const data = await response.json();
+  if (!response.ok) throw Error(data.message || "Request failed.");
+  return data;
+};
+
+export default function AdminPanel() {
+  const [ready, setReady] = useState(false),
+    [allowed, setAllowed] = useState(false),
+    [tab, setTab] = useState("dashboard"),
+    [notice, setNotice] = useState(""),
+    [services, setServices] = useState([]),
+    [pages, setPages] = useState([]),
+    [blogs, setBlogs] = useState([]),
+    [settings, setSettings] = useState({}),
+    [service, setService] = useState(serviceEmpty),
+    [page, setPage] = useState(pageEmpty),
+    [blog, setBlog] = useState(blogEmpty);
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const load = async () => {
+    if (!sessionStorage.getItem("chalakgo_admin_token")) return setReady(true);
+    try {
+      const me = await api("/api/auth/me");
+      if (!me.admin) return;
+      const [sv, pg, bl, st] = await Promise.all([
+        api("/api/services/admin"),
+        api("/api/pages/admin/all"),
+        api("/api/blogs/admin/all"),
+        api("/api/settings"),
+      ]);
+      setServices(sv);
+      setPages(pg);
+      setBlogs(bl);
+      setSettings(st);
+      setAllowed(true);
+    } catch {
+      sessionStorage.removeItem("chalakgo_admin_token");
+    } finally {
+      setReady(true);
+    }
+  };
+  useEffect(() => {
+    load();
+  }, []);
+  useEffect(() => {
+    const closeOnEscape = (event) => event.key === "Escape" && setMobileMenu(false);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, []);
+  const save = async (event, kind, item, setItems, reset, list) => {
+    event.preventDefault();
+    try {
+      const body = { ...item, slug: slugify(item.slug) };
+      if (kind === "service") {
+        body.features = String(item.features)
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean);
+        body.tourPlans = Array.isArray(item.tourPlans)
+          ? item.tourPlans
+          : item.tourPlans
+            ? JSON.parse(item.tourPlans)
+            : [];
+      }
+      const result = item._id
+        ? await api(`/api/${kind}s/${item._id}`, {
+            method: "PUT",
+            body: JSON.stringify(body),
+          })
+        : await api(`/api/${kind}s`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+      setItems((items) =>
+        item._id
+          ? items.map((x) => (x._id === result._id ? result : x))
+          : [result, ...items],
+      );
+      reset();
+      setTab(list);
+      setNotice("Saved successfully.");
+    } catch (error) {
+      setNotice(error.message);
+    }
+  };
+  const remove = async (kind, id, setItems) => {
+    if (!window.confirm("Delete this item?")) return;
+    try {
+      await api(`/api/${kind}s/${id}`, { method: "DELETE" });
+      setItems((items) => items.filter((x) => x._id !== id));
+      setNotice("Deleted successfully.");
+    } catch (error) {
+      setNotice(error.message);
+    }
+  };
+  if (!ready)
+    return <div className="admin-loading">Loading admin panel...</div>;
+  if (!allowed) return <Login />;
+  const title = {
+    dashboard: "Dashboard",
+    services: "Services",
+    pages: "Website pages",
+    blogs: "Blog posts",
+    settings: "Brand & contact",
+    "service-form": service._id ? "Edit service" : "New service",
+    "page-form": page._id ? "Edit page" : "New page",
+    "blog-form": blog._id ? "Edit blog post" : "New blog post",
+  }[tab];
+  return (
+    <div className={`admin-shell ${mobileMenu ? "mobile-menu-open" : ""}`}>
+      <header className="mobile-admin-header">
+        <button className="mobile-menu-toggle" type="button" aria-label={mobileMenu ? "Close navigation" : "Open navigation"} aria-expanded={mobileMenu} onClick={() => setMobileMenu((value) => !value)}>{mobileMenu ? "×" : "☰"}</button>
+        <strong>Chalak<span>Go</span> Admin</strong>
+        <b className="avatar">A</b>
+      </header>
+      <button className="mobile-menu-backdrop" type="button" aria-label="Close navigation" onClick={() => setMobileMenu(false)} />
+      <aside className="admin-sidebar">
+        <div className="brand">
+          <b>C</b> Chalak<span>Go</span>
+        </div>
+        <small>MANAGEMENT</small>
+        <nav>
+          {[
+            ["dashboard", "Dashboard"],
+            ["services", "Services"],
+            ["pages", "Pages"],
+            ["blogs", "Blog"],
+            ["settings", "Brand & contact"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              className={tab.startsWith(id) ? "active" : ""}
+              onClick={() => { setTab(id); setMobileMenu(false); }}
+            >
+              <i>•</i>
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="side-bottom">
+          {/* <a href="http://localhost:5173" target="_blank" rel="noreferrer">
+            View website
+          </a> */}
+          <button
+            onClick={() =>
+              api("/api/auth/logout", { method: "POST" }).finally(() => {
+                sessionStorage.removeItem("chalakgo_admin_token");
+                window.location.reload();
+              })
+            }
+          >
+            Sign out
+          </button>
+        </div>
+      </aside>
+      <main className="admin-main">
+        <header>
+          <div>
+            <small>CONTENT CONTROL CENTER</small>
+            <h1>{title}</h1>
+          </div>
+          <b className="avatar">A</b>
+        </header>
+        {notice && (
+          <div className="notice">
+            {notice}
+            <button onClick={() => setNotice("")}>×</button>
+          </div>
+        )}
+        {tab === "dashboard" && (
+          <Dashboard
+            services={services}
+            pages={pages}
+            blogs={blogs}
+            go={setTab}
+          />
+        )}
+        {tab === "services" && (
+          <List
+            title="Services"
+            action="+ Add service"
+            items={services}
+            add={() => {
+              setService(serviceEmpty);
+              setTab("service-form");
+            }}
+            edit={(item) => {
+              setService({
+                ...item,
+                features: (item.features || []).join("\n"),
+              });
+              setTab("service-form");
+            }}
+            remove={(item) => remove("service", item._id, setServices)}
+            label={(item) => item.name}
+            sub={(item) => `/services/${item.slug}`}
+            live={(item) => item.isActive}
+          />
+        )}
+        {tab === "pages" && (
+          <List
+            title="Website pages"
+            action="+ Add page"
+            items={pages}
+            add={() => {
+              setPage(pageEmpty);
+              setTab("page-form");
+            }}
+            edit={(item) => {
+              setPage(item);
+              setTab("page-form");
+            }}
+            remove={(item) => remove("page", item._id, setPages)}
+            label={(item) => item.title}
+            sub={(item) => `/p/${item.slug}`}
+            live={(item) => item.isPublished}
+          />
+        )}
+        {tab === "blogs" && (
+          <List
+            title="Blog posts"
+            action="+ Add blog post"
+            items={blogs}
+            add={() => {
+              setBlog(blogEmpty());
+              setTab("blog-form");
+            }}
+            edit={(item) => {
+              setBlog({
+                ...item,
+                publishedAt: item.publishedAt
+                  ? new Date(item.publishedAt).toISOString().slice(0, 10)
+                  : "",
+              });
+              setTab("blog-form");
+            }}
+            remove={(item) => remove("blog", item._id, setBlogs)}
+
+            label={(item) => item.title}
+
+            sub={(item) => `/blog/${item.slug}`}
+
+            live={(item) => item.isPublished}
+          />
+        )}
+        {tab === "service-form" && (
+          <Editor
+            title="Service information"
+            item={service}
+            setItem={setService}
+            submit={(event) =>
+              save(
+                event,
+                "service",
+                service,
+                setServices,
+                () => setService(serviceEmpty),
+                "services",
+              )
+            }
+            back={() => setTab("services")}
+            fields={[
+              ["Service name", "name", true],
+              ["URL slug", "slug", true, "/services/"],
+              ["Price", "price"],
+              ["Short heading", "eyebrow"],
+              ["Image URL", "image", false, "", false, true],
+              ["Description", "detail", false, "", true, true],
+              ["Features (one per line)", "features", false, "", true, true],
+            ]}
+            publishedKey="isActive"
+          />
+        )}
+        {tab === "page-form" && (
+          <Editor
+            title="Page content"
+            item={page}
+            setItem={setPage}
+            submit={(event) =>
+              save(
+                event,
+                "page",
+                page,
+                setPages,
+                () => setPage(pageEmpty),
+                "pages",
+              )
+            }
+            back={() => setTab("pages")}
+            fields={[
+              ["Page title", "title", true],
+              ["URL slug", "slug", true, "/p/"],
+              ["Menu label", "navigationLabel"],
+              ["Hero heading", "heroTitle"],
+              ["Introduction", "excerpt", false, "", true, true],
+              ["Page content", "content", false, "", true, true],
+            ]}
+          />
+        )}
+        {tab === "blog-form" && (
+          <Editor
+            title="Blog post"
+            item={blog}
+            setItem={setBlog}
+            submit={(event) =>
+              save(
+                event,
+                "blog",
+                blog,
+                setBlogs,
+                () => setBlog(blogEmpty()),
+                "blogs",
+              )
+            }
+            back={() => setTab("blogs")}
+            fields={[
+              ["Post title", "title", true],
+              ["URL slug", "slug", true, "/blog/"],
+              ["Author", "author"],
+              ["Publish date", "publishedAt", false, "", false, false, "date"],
+              ["Cover image URL", "coverImage", false, "", false, true],
+              ["Introduction", "excerpt", false, "", true, true],
+              ["Article content", "content", true, "", true, true],
+            ]}
+          />
+        )}
+        {tab === "settings" && (
+          <BrandForm
+            settings={settings}
+            setSettings={setSettings}
+            setNotice={setNotice}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+function Dashboard({ services, pages, blogs, go }) {
+  return (
+    <>
+      <section className="stats">
+        <Stat title="Total services" value={services.length} />
+        <Stat title="Website pages" value={pages.length} />
+        <Stat title="Blog posts" value={blogs.length} />
+      </section>
+      <section className="dash-grid">
+        <article className="welcome">
+          <small>WELCOME BACK</small>
+          <h2>
+            Your website is
+            <br />
+            ready to grow.
+          </h2>
+          <p>
+            Manage every service, page, post, logo and business detail from one
+            place.
+          </p>
+          <button onClick={() => go("service-form")}>Add a service →</button>
+        </article>
+        <article className="quick">
+          <h2>Quick actions</h2>
+          <button onClick={() => go("service-form")}>Add a service →</button>
+          <button onClick={() => go("blog-form")}>Write a blog post →</button>
+          <button onClick={() => go("settings")}>Update logo & name →</button>
+        </article>
+      </section>
+    </>
+  );
+}
+function Stat({ title, value }) {
+  return (
+    <article className="stat">
+      <i>•</i>
+      <div>
+        <small>{title}</small>
+        <b>{value}</b>
+      </div>
+    </article>
+  );
+}
+function List({ title, action, items, add, edit, remove, label, sub, live }) {
+  return (
+    <section className="card">
+      <div className="list-head">
+        <div>
+          <small>MANAGE CONTENT</small>
+          <h2>{title}</h2>
+        </div>
+        <button className="primary" onClick={add}>
+          {action}
+        </button>
+      </div>
+      <div className="rows">
+        {items.map((item) => (
+          <article className="row" key={item._id}>
+            <i className="icon">•</i>
+            <div className="copy">
+              <b>{label(item)}</b>
+              <small>{sub(item)}</small>
+            </div>
+            <span className={live(item) ? "status live" : "status"}>
+              {live(item) ? "Published" : "Draft"}
+            </span>
+            <div className="actions">
+              <button onClick={() => edit(item)}>Edit</button>
+              <button onClick={() => remove(item)}>Delete</button>
+            </div>
+          </article>
+        ))}
+        {!items.length && <p className="empty">Nothing added yet.</p>}
+      </div>
+    </section>
+  );
+}
+function Editor({
+  title,
+  item,
+  setItem,
+  submit,
+  back,
+  fields,
+  publishedKey = "isPublished",
+}) {
+  const set = (key, value) => setItem({ ...item, [key]: value });
+  return (
+    <form className="card editor" onSubmit={submit}>
+      <div className="form-head">
+        <div>
+          <small>CONTENT EDITOR</small>
+          <h2>{title}</h2>
+          <p>Changes are applied to the website after saving.</p>
+        </div>
+        <button className="back" type="button" onClick={back}>
+          Back to list
+        </button>
+      </div>
+      <div className="grid">
+        {fields.map(([label, key, required, prefix, area, wide, type]) => (
+          <Field
+            key={key}
+            label={label}
+            value={item[key]}
+            required={required}
+            prefix={prefix}
+            area={area}
+            wide={wide}
+            type={type}
+            onChange={(value) => {
+              set(key, value);
+              if ((key === "name" || key === "title") && !item._id)
+                set("slug", slugify(value));
+            }}
+          />
+        ))}
+      </div>
+      <Toggle
+        checked={item[publishedKey]}
+        onChange={(value) => set(publishedKey, value)}
+        label="Publish on website"
+      />
+      <div className="form-footer">
+        <button className="secondary" type="button" onClick={back}>
+          Cancel
+        </button>
+        <button className="primary">Save changes</button>
+      </div>
+    </form>
+  );
+}
+function BrandForm({ settings, setSettings, setNotice }) {
+  const save = async (event) => {
+    event.preventDefault();
+    try {
+      setSettings(
+        await api("/api/settings", {
+          method: "PUT",
+          body: JSON.stringify(settings),
+        }),
+      );
+      setNotice("Brand, contact and social links updated.");
+    } catch (error) {
+      setNotice(error.message);
+    }
+  };
+  const set = (key, value) => setSettings({ ...settings, [key]: value });
+  return (
+    <form className="card editor" onSubmit={save}>
+      <div className="form-head">
+        <div>
+          <small>WEBSITE SETTINGS</small>
+          <h2>Brand, contact & social accounts</h2>
+          <p>
+            Upload the logo and the homepage right-side photo from your
+            computer.
+          </p>
+        </div>
+      </div>
+      <div className="grid">
+        <Field
+          label="Website / business name"
+          value={settings.siteName}
+          required
+          onChange={(value) => set("siteName", value)}
+        />
+        <Field
+          label="Logo image URL"
+          value={settings.logo}
+          onChange={(value) => set("logo", value)}
+        />
+        <Field
+          label="Homepage right-side image URL"
+          value={settings.heroImage}
+          onChange={(value) => set("heroImage", value)}
+          wide
+        />
+        <Field
+          label="Phone number"
+          value={settings.phone}
+          required
+          onChange={(value) => set("phone", value)}
+        />
+        <Field
+          label="Email address"
+          value={settings.email}
+          type="email"
+          required
+          onChange={(value) => set("email", value)}
+        />
+        <Field
+          label="Facebook URL"
+          value={settings.facebook}
+          onChange={(value) => set("facebook", value)}
+        />
+        <Field
+          label="Instagram URL"
+          value={settings.instagram}
+          onChange={(value) => set("instagram", value)}
+        />
+        <Field
+          label="LinkedIn URL"
+          value={settings.linkedin}
+          onChange={(value) => set("linkedin", value)}
+        />
+        <Field
+          label="YouTube URL"
+          value={settings.youtube}
+          onChange={(value) => set("youtube", value)}
+        />
+        <Field
+          label="Office address"
+          value={settings.address}
+          area
+          wide
+          onChange={(value) => set("address", value)}
+        />
+      </div>
+      <div className="form-footer">
+        <button className="primary">Save changes</button>
+      </div>
+    </form>
+  );
+}
+function Field({
+  label,
+  value,
+  onChange,
+  required,
+  prefix,
+  area,
+  wide,
+  type = "text",
+}) {
+  const [uploading, setUploading] = useState(false),
+    [error, setError] = useState("");
+  const isImage = /image url/i.test(label);
+  const pickImage = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const token = sessionStorage.getItem("chalakgo_admin_token"),
+        body = new FormData();
+      body.append("image", file);
+      const response = await fetch("https://chalakgo.onrender.com/api/uploads", {
+        method: "POST",
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body,
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.message || "Image upload failed.");
+      onChange(`https://chalakgo.onrender.com${data.url}`);
+    } catch (uploadError) {
+      setError(uploadError.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+  if (isImage)
+    return (
+      <label className={`field ${wide ? "wide" : ""}`}>
+        <span>{label.replace(" URL", "")} — upload from computer</span>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          onChange={pickImage}
+          disabled={uploading}
+        />
+        {uploading && <small>Uploading…</small>}
+        {error && <small>{error}</small>}
+        {value && (
+          <img
+            style={{
+              maxHeight: 150,
+              maxWidth: "100%",
+              marginTop: 10,
+              borderRadius: 8,
+            }}
+            src={value}
+            alt="Uploaded preview"
+          />
+        )}
+      </label>
+    );
+  return (
+    <label className={`field ${wide ? "wide" : ""} ${area ? "tall" : ""}`}>
+      <span>{label}</span>
+      <div className={prefix ? "prefixed" : ""}>
+        {prefix && <em>{prefix}</em>}
+        {area ? (
+          <textarea
+            value={value || ""}
+            required={required}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        ) : (
+          <input
+            type={type}
+            value={value || ""}
+            required={required}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
+      </div>
+    </label>
+  );
+}
+function Toggle({ checked, onChange, label }) {
+  return (
+    <label className="toggle">
+      <input
+        type="checkbox"
+        checked={!!checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <i></i>
+      <span>
+        <b>{label}</b>
+        <small>Visible to visitors on the website</small>
+      </span>
+    </label>
+  );
+}
+function Login() {
+  const [username, setUsername] = useState(""),
+    [password, setPassword] = useState(""),
+    [message, setMessage] = useState(""),
+    [saving, setSaving] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      const response = await fetch("https://chalakgo.onrender.com/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.message);
+      sessionStorage.setItem("chalakgo_admin_token", data.token);
+      window.location.reload();
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <main className="admin-loading">
+      <form className="card editor" onSubmit={submit}>
+        <div className="form-head">
+          <div>
+            <small>ADMIN ACCESS</small>
+            <h2>Admin login</h2>
+            <p>Use the username and password configured in backend/.env.</p>
+          </div>
+        </div>
+        <div className="grid">
+          <Field
+            label="Username"
+            value={username}
+            required
+            onChange={setUsername}
+          />
+          <Field
+            label="Password"
+            value={password}
+            type="password"
+            required
+            onChange={setPassword}
+          />
+        </div>
+        {message && <p className="empty">{message}</p>}
+        <div className="form-footer">
+          <button className="primary" disabled={saving}>
+            {saving ? "Please wait..." : "Login"}
+          </button>
+        </div>
+      </form>
+    </main>
+  );
+}
