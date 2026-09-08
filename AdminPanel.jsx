@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 const serviceEmpty = {
   name: "",
   slug: "",
   price: "",
+  pricingType: "hourly",
+  suvRate: "",
+  hatchbackRate: "",
+  travellerRate: "",
+  sixToEightRate: "",
+  eightToTenRate: "",
+  tenToTwelveRate: "",
   eyebrow: "",
   detail: "",
   features: "",
@@ -37,9 +45,18 @@ const slugify = (value) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+const idOf = (value) => {
+  const id = value?._id ?? value;
+  if (typeof id === "string" || typeof id === "number") return String(id);
+  if (id?.buffer) return Object.values(id.buffer).map((byte) => Number(byte).toString(16).padStart(2, "0")).join("");
+  return id?.toString?.() || "";
+};
+const apiBase = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:5000"
+  : "https://chalakgo.onrender.com";
 const api = async (path, options = {}) => {
   const token = sessionStorage.getItem("chalakgo_admin_token");
-  const response = await fetch(`https://chalakgo.onrender.com${path}`, {
+  const response = await fetch(`${apiBase}${path}`, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -53,6 +70,7 @@ const api = async (path, options = {}) => {
   if (!response.ok) throw Error(data.message || "Request failed.");
   return data;
 };
+const setFavicon = (url) => { if (!url) return; let icon = document.querySelector("link[rel='icon']"); if (!icon) { icon = document.createElement('link'); icon.rel = 'icon'; document.head.appendChild(icon) } icon.href = url }
 
 export default function AdminPanel() {
   const [ready, setReady] = useState(false),
@@ -82,6 +100,7 @@ export default function AdminPanel() {
       setPages(pg);
       setBlogs(bl);
       setSettings(st);
+      setFavicon(st.adminFavicon);
       setAllowed(true);
     } catch {
       sessionStorage.removeItem("chalakgo_admin_token");
@@ -102,6 +121,10 @@ export default function AdminPanel() {
     try {
       const body = { ...item, slug: slugify(item.slug) };
       if (kind === "service") {
+        body.pricingType = item.pricingType || "hourly";
+        body.vehicleRates = { suv: Number(item.suvRate) || undefined, hatchback: Number(item.hatchbackRate) || undefined };
+        body.vehicleRates.traveller = Number(item.travellerRate) || undefined;
+        body.monthlyRates = { sixToEight: Number(item.sixToEightRate) || undefined, eightToTen: Number(item.eightToTenRate) || undefined, tenToTwelve: Number(item.tenToTwelveRate) || undefined };
         body.features = String(item.features)
           .split("\n")
           .map((x) => x.trim())
@@ -112,8 +135,9 @@ export default function AdminPanel() {
             ? JSON.parse(item.tourPlans)
             : [];
       }
-      const result = item._id
-        ? await api(`/api/${kind}s/${item._id}`, {
+      const itemId = idOf(item);
+      const result = itemId
+        ? await api(`/api/${kind}s/${itemId}`, {
             method: "PUT",
             body: JSON.stringify(body),
           })
@@ -122,25 +146,30 @@ export default function AdminPanel() {
             body: JSON.stringify(body),
           });
       setItems((items) =>
-        item._id
-          ? items.map((x) => (x._id === result._id ? result : x))
+        itemId
+          ? items.map((x) => (idOf(x) === idOf(result) ? result : x))
           : [result, ...items],
       );
       reset();
       setTab(list);
       setNotice("Saved successfully.");
+      toast.success("Saved successfully.");
     } catch (error) {
       setNotice(error.message);
+      toast.error(error.message);
     }
   };
   const remove = async (kind, id, setItems) => {
+    const itemId = idOf(id);
     if (!window.confirm("Delete this item?")) return;
     try {
-      await api(`/api/${kind}s/${id}`, { method: "DELETE" });
-      setItems((items) => items.filter((x) => x._id !== id));
+      await api(`/api/${kind}s/${itemId}`, { method: "DELETE" });
+      setItems((items) => items.filter((x) => idOf(x) !== itemId));
       setNotice("Deleted successfully.");
+      toast.success("Deleted successfully.");
     } catch (error) {
       setNotice(error.message);
+      toast.error(error.message);
     }
   };
   if (!ready)
@@ -186,6 +215,10 @@ export default function AdminPanel() {
               {label}
             </button>
           ))}
+          <button onClick={() => { window.location.href = "/reviews"; }}>
+            <i>•</i>
+            Reviews
+          </button>
         </nav>
         <div className="side-bottom">
           {/* <a href="http://localhost:5173" target="_blank" rel="noreferrer">
@@ -238,6 +271,12 @@ export default function AdminPanel() {
               setService({
                 ...item,
                 features: (item.features || []).join("\n"),
+                suvRate: item.vehicleRates?.suv || "",
+                hatchbackRate: item.vehicleRates?.hatchback || "",
+                travellerRate: item.vehicleRates?.traveller || "",
+                sixToEightRate: item.monthlyRates?.sixToEight || "",
+                eightToTenRate: item.monthlyRates?.eightToTen || "",
+                tenToTwelveRate: item.monthlyRates?.tenToTwelve || "",
               });
               setTab("service-form");
             }}
@@ -313,6 +352,13 @@ export default function AdminPanel() {
               ["Service name", "name", true],
               ["URL slug", "slug", true, "/services/"],
               ["Price", "price"],
+              ["Pricing type", "pricingType"],
+              ["SUV rate per km", "suvRate"],
+              ["Hatchback rate per km", "hatchbackRate"],
+              ["Haravan Traveller rate per km", "travellerRate"],
+              ["6–8 hours monthly rate", "sixToEightRate"],
+              ["8–10 hours monthly rate", "eightToTenRate"],
+              ["10–12 hours monthly rate", "tenToTwelveRate"],
               ["Short heading", "eyebrow"],
               ["Image URL", "image", false, "", false, true],
               ["Description", "detail", false, "", true, true],
@@ -442,7 +488,7 @@ function List({ title, action, items, add, edit, remove, label, sub, live }) {
       </div>
       <div className="rows">
         {items.map((item) => (
-          <article className="row" key={item._id}>
+          <article className="row" key={idOf(item)}>
             <i className="icon">•</i>
             <div className="copy">
               <b>{label(item)}</b>
@@ -518,6 +564,15 @@ function Editor({
   );
 }
 function BrandForm({ settings, setSettings, setNotice }) {
+  const saveUploadedImage = async (updates) => {
+    const nextSettings = { ...settings, ...updates };
+    setSettings(nextSettings);
+    const saved = await api("/api/settings", { method: "PUT", body: JSON.stringify(nextSettings) });
+    setSettings(saved);
+    setFavicon(saved.adminFavicon);
+    setNotice("Logo image uploaded and applied successfully.");
+    toast.success("Logo image uploaded and applied successfully.");
+  };
   const save = async (event) => {
     event.preventDefault();
     try {
@@ -528,8 +583,10 @@ function BrandForm({ settings, setSettings, setNotice }) {
         }),
       );
       setNotice("Brand, contact and social links updated.");
+      toast.success("Brand and contact settings updated.");
     } catch (error) {
       setNotice(error.message);
+      toast.error(error.message);
     }
   };
   const set = (key, value) => setSettings({ ...settings, [key]: value });
@@ -540,8 +597,7 @@ function BrandForm({ settings, setSettings, setNotice }) {
           <small>WEBSITE SETTINGS</small>
           <h2>Brand, contact & social accounts</h2>
           <p>
-            Upload the logo and the homepage right-side photo from your
-            computer.
+            Upload one navbar logo and one shared footer/favicon image for the website and admin panel.
           </p>
         </div>
       </div>
@@ -555,12 +611,22 @@ function BrandForm({ settings, setSettings, setNotice }) {
         <Field
           label="Logo image URL"
           value={settings.logo}
-          onChange={(value) => set("logo", value)}
+          onChange={(value) => saveUploadedImage({ logo: value })}
+        />
+        <Field
+          label="Website navbar logo image URL"
+          value={settings.navbarLogo}
+          onChange={(value) => saveUploadedImage({ navbarLogo: value })}
+        />
+        <Field
+          label="Footer logo + both favicons image URL"
+          value={settings.footerLogo || settings.mainFavicon || settings.adminFavicon}
+          onChange={(value) => saveUploadedImage({ footerLogo: value, mainFavicon: value, adminFavicon: value })}
         />
         <Field
           label="Homepage right-side image URL"
           value={settings.heroImage}
-          onChange={(value) => set("heroImage", value)}
+          onChange={(value) => saveUploadedImage({ heroImage: value })}
           wide
         />
         <Field
@@ -632,7 +698,7 @@ function Field({
       const token = sessionStorage.getItem("chalakgo_admin_token"),
         body = new FormData();
       body.append("image", file);
-      const response = await fetch("https://chalakgo.onrender.com/api/uploads", {
+      const response = await fetch(`${apiBase}/api/uploads`, {
         method: "POST",
         credentials: "include",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -640,9 +706,11 @@ function Field({
       });
       const data = await response.json();
       if (!response.ok) throw Error(data.message || "Image upload failed.");
-      onChange(`https://chalakgo.onrender.com${data.url}`);
+      await onChange(`${apiBase}${data.url}`);
+      toast.success("Image uploaded successfully.");
     } catch (uploadError) {
       setError(uploadError.message);
+      toast.error(uploadError.message);
     } finally {
       setUploading(false);
     }
@@ -721,7 +789,7 @@ function Login() {
     event.preventDefault();
     setSaving(true);
     try {
-      const response = await fetch("https://chalakgo.onrender.com/api/auth/login", {
+      const response = await fetch(`${apiBase}/api/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
