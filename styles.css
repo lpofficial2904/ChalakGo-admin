@@ -21,3 +21,59 @@
 .admin-login{min-height:100dvh;padding:clamp(20px,6vw,72px) 16px}.admin-login .card{position:relative;overflow:hidden;max-width:520px;background:rgb(255 255 255 / .92);backdrop-filter:blur(16px)}.admin-login .card::before{position:absolute;top:0;right:0;left:0;height:5px;background:linear-gradient(90deg,#2869e5,#16b8a6);content:''}.admin-login .form-head h2{font-size:32px;letter-spacing:-.8px}.admin-login .form-head p{max-width:360px;line-height:1.6}.admin-login .field input{min-height:50px;border-radius:12px;background:#f8faff}.admin-login .field input:focus{border-color:#2869e5;box-shadow:0 0 0 4px #2869e51f}.admin-login .form-footer{margin-top:24px}.admin-login .form-footer .primary{width:100%;font-weight:800;letter-spacing:.01em}
 @media(max-width:700px){.admin-main{padding-right:12px!important;padding-left:12px!important}.card,.editor{border-radius:16px}.list-head h2{font-size:22px}.notification-section{padding:14px}.notification-section .grid{margin-top:12px}.row{display:flex;flex-wrap:wrap}.row .copy{flex:1 1 180px;min-width:0}.row .actions{flex:1 1 100%;margin-left:46px}.admin-login .card{width:min(100%,520px);padding:22px 18px}.admin-login .form-head h2{font-size:27px}.admin-login .grid{grid-template-columns:1fr}.admin-login .form-footer{padding-top:8px}.admin-sidebar{width:min(78vw,300px)!important;max-width:300px!important;padding:18px 14px 16px!important;overflow-x:hidden!important;overflow-y:auto!important}.mobile-drawer-heading{display:flex;align-items:flex-start;justify-content:space-between;flex:0 0 auto;margin:0 0 22px;padding:0 4px 18px;border-bottom:1px solid #293659;color:#fff}.mobile-drawer-heading strong{display:block;font:800 18px Manrope}.mobile-drawer-heading span{display:block;margin-top:3px;color:#8b9abb;font-size:11px}.mobile-drawer-heading button{width:30px;height:30px;border:0;border-radius:8px;background:#1b2b4e;color:#fff;font-size:22px;line-height:1}.admin-sidebar .brand{display:none}.admin-sidebar>small{margin:0 8px 9px!important;color:#8491ad!important;font-size:9px!important}.admin-sidebar nav{flex:0 0 auto!important;width:100%!important;min-width:0!important;gap:5px!important}.admin-sidebar nav button{display:flex!important;flex:0 0 auto!important;align-items:center;width:100%!important;min-height:43px;padding:10px 11px!important;border-radius:9px;font-size:13px;line-height:1.25;white-space:normal!important}.admin-sidebar nav button i{flex:0 0 25px}.admin-sidebar .side-bottom{flex:0 0 auto;width:100%;margin-top:auto}.mobile-menu-backdrop{z-index:55!important}.mobile-menu-open .admin-sidebar{z-index:60!important}.mobile-menu-open .admin-main{pointer-events:none}}
 @media(max-width:700px){.mobile-menu-open .admin-sidebar nav{display:flex!important;visibility:visible!important;opacity:1!important;flex-direction:column!important;align-items:stretch!important;height:auto!important;max-height:none!important}.mobile-menu-open .admin-sidebar nav button,.mobile-menu-open .admin-sidebar nav button *{visibility:visible!important;opacity:1!important}.mobile-menu-open .admin-sidebar nav button{color:#c4d0e5!important;background:transparent!important}.mobile-menu-open .admin-sidebar nav button.active{background:#2869e5!important;color:#fff!important}.mobile-menu-open .admin-sidebar>small{display:block!important;visibility:visible!important;color:#8491ad!important}.mobile-menu-open .admin-sidebar .side-bottom{display:block!important;visibility:visible!important}}
+
+/* Reset the tablet toolbar layout when it becomes a mobile drawer. */
+@media (max-width: 700px) {
+  .admin-shell .admin-sidebar {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    height: 100vh !important;
+    height: 100dvh !important;
+    overscroll-behavior-y: contain;
+    padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .admin-sidebar > * {
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .admin-sidebar .mobile-drawer-heading {
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .mobile-drawer-heading button {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-sidebar nav {
+    order: 0;
+    margin: 0;
+  }
+
+  .admin-sidebar nav button {
+    min-height: 44px;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-sidebar .side-bottom {
+    order: 0;
+    margin: auto 0 0;
+    padding-top: 12px;
+  }
+
+  .admin-sidebar .side-bottom a,
+  .admin-sidebar .side-bottom button {
+    display: block;
+    min-height: 44px;
+    padding: 12px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+  }
+}
