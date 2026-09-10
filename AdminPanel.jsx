@@ -1,3 +1,4 @@
+import { idOf } from './utils/id.js'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import './login.css'
@@ -60,15 +61,6 @@ const slugify = (value) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
-const idOf = (value) => {
-  const id = value?._id ?? value
-  if (typeof id === 'string' || typeof id === 'number') return String(id)
-  if (id?.buffer)
-    return Object.values(id.buffer)
-      .map((byte) => Number(byte).toString(16).padStart(2, '0'))
-      .join('')
-  return id?.toString?.() || ''
-}
 const apiBase =
   window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000'
@@ -175,10 +167,21 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
       document.body.classList.remove('admin-menu-open')
     }
   }, [mobileMenu])
+  const toggleStatus = async (kind, item, setItems) => {
+    const key = kind === 'service' ? 'isActive' : 'isPublished'
+    try {
+      const id = idOf(item._id)
+      const result = await api(id ? `/api/${kind}s/${id}` : `/api/${kind}s`, {
+        method: id ? 'PUT' : 'POST', body: JSON.stringify(id ? { [key]: !item[key] } : { ...item, [key]: !item[key] }),
+      })
+      setItems(items => id ? items.map(existing => idOf(existing) === id ? result : existing) : [...items, result])
+      toast.success(result[key] ? 'Status: Active' : 'Status: Inactive')
+    } catch (error) { toast.error(error.message) }
+  }
   const save = async (event, kind, item, setItems, reset, list) => {
     event.preventDefault()
     try {
-      const body = { ...item, slug: slugify(item.slug) }
+      const body = { ...item, slug: slugify(item.slug), ...(kind === 'page' ? { statusOnly: false } : {}) }
       if (kind === 'service') {
         body.pricingType = item.pricingType || 'hourly'
         body.vehicleRates = {
@@ -201,7 +204,8 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             ? JSON.parse(item.tourPlans)
             : []
       }
-      const itemId = idOf(item)
+      const itemId = idOf(item._id)
+      if (item._id && !itemId) throw Error('Invalid record ID. Refresh the page and try again.')
       const result = itemId
         ? await api(`/api/${kind}s/${itemId}`, {
             method: 'PUT',
@@ -391,12 +395,14 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             remove={(item) => remove('service', item._id, setServices)}
             label={(item) => item.name}
             sub={(item) => `/services/${item.slug}`}
+            toggle={item => toggleStatus('service', item, setServices)}
             live={(item) => item.isActive}
           />
         )}
         {tab === 'pages' && (
           <WebsitePages
             pages={pages}
+            toggle={item => toggleStatus('page', item, setPages)}
             add={() => {
               setPage(pageEmpty)
               setTab('page-form')
@@ -408,7 +414,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             remove={(item) => remove('page', item._id, setPages)}
             editStatic={(label, path) => {
               const slug = path === '/' ? 'home' : path.slice(1)
-              setPage({ ...pageEmpty, title: label, slug, navigationLabel: label })
+              setPage(pages.find(item => item.slug === slug) || { ...pageEmpty, title: label, slug, navigationLabel: label })
               setTab('page-form')
             }}
           />
@@ -434,6 +440,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             remove={(item) => remove('blog', item._id, setBlogs)}
             label={(item) => item.title}
             sub={(item) => `/blog/${item.slug}`}
+            toggle={item => toggleStatus('blog', item, setBlogs)}
             live={(item) => item.isPublished}
           />
         )}
@@ -458,8 +465,8 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
               ['URL slug', 'slug', true, '/services/'],
               ['Price', 'price'],
               ['Pricing type', 'pricingType'],
-              ['SUV rate per km', 'suvRate'],
-              ['Hatchback rate per km', 'hatchbackRate'],
+              ['SUV extra rate/km after 250 km (₹3,500 flat)', 'suvRate'],
+              ['Hatchback extra rate/km after 250 km (₹3,000 flat)', 'hatchbackRate'],
               ['Haravan Traveller rate per km', 'travellerRate'],
               ['6–8 hours monthly rate', 'sixToEightRate'],
               ['8–10 hours monthly rate', 'eightToTenRate'],
@@ -551,7 +558,7 @@ function Dashboard({ services, pages, blogs, go }) {
   )
 }
 
-function WebsitePages({ pages, add, edit, remove, editStatic }) {
+function WebsitePages({ pages, add, edit, remove, editStatic, toggle }) {
   return (
     <section className="card">
       <div className="list-head">
@@ -572,7 +579,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic }) {
               <b>{label}</b>
               <small>{path}</small>
             </div>
-            <span className="status live">Live page</span>
+            <StatusToggle active={pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1)))?.isPublished !== false} onToggle={() => toggle(pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1))) || { title: label, slug: path === '/' ? 'home' : path.slice(1), isPublished: true, statusOnly: true })} />
             <div className="actions">
               <a href={`${websiteBase}${path}`} target="_blank" rel="noreferrer">View</a>
               <button onClick={() => editStatic(label, path)}>Edit</button>
@@ -586,9 +593,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic }) {
               <b>{item.title}</b>
               <small>/p/{item.slug}</small>
             </div>
-            <span className={item.isPublished ? 'status live' : 'status'}>
-              {item.isPublished ? 'Published' : 'Draft'}
-            </span>
+            <StatusToggle active={item.isPublished} onToggle={() => toggle(item)} />
             <div className="actions">
               <button onClick={() => edit(item)}>Edit</button>
               <button onClick={() => remove(item)}>Delete</button>
@@ -610,7 +615,7 @@ function Stat({ title, value }) {
     </article>
   )
 }
-function List({ title, action, items, add, edit, remove, label, sub, live }) {
+function List({ title, action, items, add, edit, remove, label, sub, live, toggle }) {
   return (
     <section className="card">
       <div className="list-head">
@@ -630,9 +635,7 @@ function List({ title, action, items, add, edit, remove, label, sub, live }) {
               <b>{label(item)}</b>
               <small>{sub(item)}</small>
             </div>
-            <span className={live(item) ? 'status live' : 'status'}>
-              {live(item) ? 'Published' : 'Draft'}
-            </span>
+            <StatusToggle active={live(item)} onToggle={() => toggle(item)} />
             <div className="actions">
               <button onClick={() => edit(item)}>Edit</button>
               <button onClick={() => remove(item)}>Delete</button>
@@ -760,6 +763,12 @@ function BrandForm({ settings, setSettings, setNotice }) {
           wide
         />
         <Field
+          label="About page right-side image URL"
+          value={settings.aboutHeroImage}
+          onChange={(value) => saveUploadedImage({ aboutHeroImage: value })}
+          wide
+        />
+        <Field
           label="Top bar message"
           value={settings.topBarMessage}
           onChange={(value) => set('topBarMessage', value)}
@@ -812,6 +821,11 @@ function BrandForm({ settings, setSettings, setNotice }) {
           label="WhatsApp URL"
           value={settings.whatsapp}
           onChange={(value) => set('whatsapp', value)}
+        />
+        <Field
+          label="Floating WhatsApp number (country code, no +)"
+          value={settings.whatsappNumber}
+          onChange={(value) => set('whatsappNumber', value.replace(/\D/g, ''))}
         />
         <Field
           label="LinkedIn URL"
@@ -921,6 +935,12 @@ function EmailNotifications({ settings, setSettings, setNotice }) {
         <Toggle checked={settings.bookingEmailEnabled !== false} onChange={(value) => set('bookingEmailEnabled', value)} label="Enable booking emails" />
         <Field label="Booking notification email" value={settings.bookingEmail} type="email" onChange={(value) => set('bookingEmail', value)} />
         <Field label="Booking email subject" value={settings.bookingEmailSubject} onChange={(value) => set('bookingEmailSubject', value)} wide />
+      </NotificationSection>
+      <NotificationSection title="Customer booking confirmation" description="An attractive confirmation with all booking details is sent to the email of the logged-in customer.">
+        <Toggle checked={settings.customerBookingEmailEnabled !== false} onChange={(value) => set('customerBookingEmailEnabled', value)} label="Send confirmation to customer" />
+        <Field label="Customer confirmation subject" value={settings.customerBookingEmailSubject} onChange={(value) => set('customerBookingEmailSubject', value)} wide />
+        <Field label="Customer confirmation message template" value={settings.customerBookingEmailMessage} onChange={(value) => set('customerBookingEmailMessage', value)} area wide />
+        <p className="field wide"><small>Use: {'{{name}}'}, {'{{bookingId}}'}, {'{{service}}'}, {'{{pickup}}'}, {'{{startDateTime}}'}, {'{{endDateTime}}'}, {'{{fare}}'}, {'{{siteName}}'}. The booking-details card remains included automatically.</small></p>
       </NotificationSection>
       <NotificationSection title="Contact form email" description="Contact form details will be sent to this email address.">
         <Toggle checked={settings.contactEmailEnabled !== false} onChange={(value) => set('contactEmailEnabled', value)} label="Enable contact emails" />
@@ -1102,4 +1122,9 @@ function Login() {
       </form>
     </main>
   )
+}
+
+function StatusToggle({ active, onToggle }) {
+ const [pending, setPending] = useState(false)
+ return <button type="button" role="switch" aria-checked={!!active} aria-label="Page status" disabled={pending} className={active ? 'status live' : 'status'} onClick={async () => { setPending(true); try { await onToggle() } finally { setPending(false) } }}>{pending ? 'Saving...' : active ? 'Status: Active' : 'Status: Inactive'}</button>
 }

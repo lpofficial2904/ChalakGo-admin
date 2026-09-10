@@ -1,109 +1,126 @@
-import { useEffect, useState } from 'react'
-import './styles.css'
-import { toast } from 'react-toastify'
+import { useEffect, useState } from "react";
+import "./styles.css";
+import { toast } from "react-toastify";
 
 const base =
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:5000'
-    : 'https://chalakgo.onrender.com'
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://localhost:5000"
+    : "https://chalakgo.onrender.com";
 const empty = {
-  customerName: '',
-  email: '',
-  designation: '',
-  company: '',
-  avatar: '',
-  message: '',
+  customerName: "",
+  email: "",
+  designation: "",
+  company: "",
+  avatar: "",
+  message: "",
   rating: 5,
   isPublished: true,
   isFeatured: false,
-}
+};
 const api = async (path, options = {}) => {
-  const token = sessionStorage.getItem('chalakgo_admin_token')
+  const token = sessionStorage.getItem("chalakgo_admin_token");
   const response = await fetch(base + path, {
-    credentials: 'include',
+    credentials: "include",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
     ...options,
-  })
-  if (response.status === 204) return null
-  const data = await response.json()
-  if (!response.ok) throw Error(data.message || 'Request failed.')
-  return data
-}
-const Input = ({ label, value, set, type = 'text', required }) => (
+  });
+  if (response.status === 204) return null;
+  const data = await response.json();
+  if (!response.ok) throw Error(data.message || "Request failed.");
+  return data;
+};
+const Input = ({ label, value, set, type = "text", required }) => (
   <label className="field">
     <span>{label}</span>
     <input
       type={type}
       required={required}
-      value={value || ''}
+      value={value || ""}
       onChange={(event) => set(event.target.value)}
     />
   </label>
-)
+);
 
 export default function ReviewsAdmin({ embedded = false }) {
   const [reviews, setReviews] = useState([]),
     [review, setReview] = useState(empty),
-    [notice, setNotice] = useState('')
+    [notice, setNotice] = useState("");
   const load = () =>
-    api('/api/reviews/admin')
+    api("/api/reviews/admin")
       .then(setReviews)
       .catch((error) => {
-        setNotice(error.message)
-        toast.error(error.message)
-      })
+        setNotice(error.message);
+        toast.error(error.message);
+      });
   useEffect(() => {
-    load()
-  }, [])
-  const set = (key, value) => setReview((old) => ({ ...old, [key]: value }))
+    load();
+  }, []);
+  const set = (key, value) => setReview((old) => ({ ...old, [key]: value }));
   const save = async (event) => {
-    event.preventDefault()
+    event.preventDefault();
     try {
       const saved = review._id
-        ? await api(`/api/reviews/${review._id}`, { method: 'PUT', body: JSON.stringify(review) })
-        : await api('/api/reviews', { method: 'POST', body: JSON.stringify(review) })
+        ? await api(`/api/reviews/${review._id}`, {
+            method: "PUT",
+            body: JSON.stringify(review),
+          })
+        : await api("/api/reviews", {
+            method: "POST",
+            body: JSON.stringify(review),
+          });
       setReviews((items) =>
         review._id
           ? items.map((item) => (item._id === saved._id ? saved : item))
-          : [saved, ...items]
-      )
-      setReview(empty)
-      setNotice('Review saved successfully.')
-      toast.success('Review saved successfully.')
+          : [saved, ...items],
+      );
+      setReview(empty);
+      setNotice("Review saved successfully.");
+      toast.success("Review saved successfully.");
     } catch (error) {
-      setNotice(error.message)
-      toast.error(error.message)
+      setNotice(error.message);
+      toast.error(error.message);
     }
-  }
+  };
   const remove = async (id) => {
-    if (!window.confirm('Delete this review?')) return
+    if (!window.confirm("Delete this review?")) return;
     try {
-      await api(`/api/reviews/${id}`, { method: 'DELETE' })
-      setReviews((items) => items.filter((item) => item._id !== id))
-      setNotice('Review deleted.')
-      toast.success('Review deleted.')
+      await api(`/api/reviews/${id}`, { method: "DELETE" });
+      setReviews((items) => items.filter((item) => item._id !== id));
+      setNotice("Review deleted.");
+      toast.success("Review deleted.");
     } catch (error) {
-      setNotice(error.message)
-      toast.error(error.message)
+      setNotice(error.message);
+      toast.error(error.message);
     }
-  }
+  };
   return (
-    <main className={embedded ? '' : 'admin-loading'}>
+    <main className={embedded ? "" : "admin-loading"}>
       <section
         className="card editor"
-        style={{ width: 'min(1020px, calc(100vw - 32px))', margin: '32px auto' }}
+        style={{
+          width: "min(1020px, calc(100vw - 32px))",
+          margin: "32px auto",
+        }}
       >
         <div className="form-head">
           <div>
             <small>CHALAKGO ADMIN · REVIEWS</small>
-            <h2>{review._id ? 'Edit review' : 'Add customer review'}</h2>
-            <p>Published reviews appear in the premium testimonial area just above the footer.</p>
+            <h2>{review._id ? "Edit review" : "Add customer review"}</h2>
+            <p>
+              Published reviews appear in the premium testimonial area just
+              above the footer.
+            </p>
           </div>
-          {!embedded && <a className="back" href="/">Back to dashboard</a>}
+          {!embedded && (
+            <a className="back" href="/">
+              Back to dashboard
+            </a>
+          )}
         </div>
         {notice && <p className="empty">{notice}</p>}
         <form className="grid" onSubmit={save}>
@@ -111,35 +128,39 @@ export default function ReviewsAdmin({ embedded = false }) {
             label="Customer name"
             required
             value={review.customerName}
-            set={(value) => set('customerName', value)}
+            set={(value) => set("customerName", value)}
           />
           <Input
             label="Email address"
             type="email"
             value={review.email}
-            set={(value) => set('email', value)}
+            set={(value) => set("email", value)}
           />
           <Input
             label="Designation"
             required
             value={review.designation}
-            set={(value) => set('designation', value)}
+            set={(value) => set("designation", value)}
           />
-          <Input label="Company" value={review.company} set={(value) => set('company', value)} />
+          <Input
+            label="Company"
+            value={review.company}
+            set={(value) => set("company", value)}
+          />
           <Input
             label="Avatar image URL"
             value={review.avatar}
-            set={(value) => set('avatar', value)}
+            set={(value) => set("avatar", value)}
           />
           <label className="field">
             <span>Rating</span>
             <select
               value={review.rating}
-              onChange={(event) => set('rating', Number(event.target.value))}
+              onChange={(event) => set("rating", Number(event.target.value))}
             >
               {[5, 4, 3, 2, 1].map((value) => (
                 <option key={value} value={value}>
-                  {value} star{value > 1 ? 's' : ''}
+                  {value} star{value > 1 ? "s" : ""}
                 </option>
               ))}
             </select>
@@ -150,14 +171,14 @@ export default function ReviewsAdmin({ embedded = false }) {
               required
               maxLength="600"
               value={review.message}
-              onChange={(event) => set('message', event.target.value)}
+              onChange={(event) => set("message", event.target.value)}
             />
           </label>
           <label className="toggle">
             <input
               type="checkbox"
               checked={review.isPublished}
-              onChange={(event) => set('isPublished', event.target.checked)}
+              onChange={(event) => set("isPublished", event.target.checked)}
             />
             <i></i>
             <span>
@@ -169,7 +190,7 @@ export default function ReviewsAdmin({ embedded = false }) {
             <input
               type="checkbox"
               checked={review.isFeatured}
-              onChange={(event) => set('isFeatured', event.target.checked)}
+              onChange={(event) => set("isFeatured", event.target.checked)}
             />
             <i></i>
             <span>
@@ -178,10 +199,16 @@ export default function ReviewsAdmin({ embedded = false }) {
             </span>
           </label>
           <div className="form-footer wide">
-            <button className="secondary" type="button" onClick={() => setReview(empty)}>
+            <button
+              className="secondary"
+              type="button"
+              onClick={() => setReview(empty)}
+            >
               Clear form
             </button>
-            <button className="primary">{review._id ? 'Update review' : 'Create review'}</button>
+            <button className="primary">
+              {review._id ? "Update review" : "Create review"}
+            </button>
           </div>
         </form>
         <div className="rows">
@@ -189,16 +216,16 @@ export default function ReviewsAdmin({ embedded = false }) {
             <article key={item._id} className="row">
               <div className="copy">
                 <b>
-                  {'★'.repeat(item.rating || 5)} {item.customerName}
-                  {item.isFeatured ? ' · Featured' : ''}
+                  {"★".repeat(item.rating || 5)} {item.customerName}
+                  {item.isFeatured ? " · Featured" : ""}
                 </b>
                 <small>
                   {item.designation}
-                  {item.company ? ` · ${item.company}` : ''} · {item.message}
+                  {item.company ? ` · ${item.company}` : ""} · {item.message}
                 </small>
               </div>
-              <span className={item.isPublished ? 'status live' : 'status'}>
-                {item.isPublished ? 'Active' : 'Inactive'}
+              <span className={item.isPublished ? "status live" : "status"}>
+                {item.isPublished ? "Active" : "Inactive"}
               </span>
               <div className="actions">
                 <button onClick={() => setReview(item)}>Edit</button>
@@ -210,5 +237,5 @@ export default function ReviewsAdmin({ embedded = false }) {
         </div>
       </section>
     </main>
-  )
+  );
 }
