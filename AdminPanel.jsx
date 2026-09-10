@@ -64,7 +64,7 @@ const slugify = (value) =>
 const apiBase =
   window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000'
-    : 'https://chalakgo.onrender.com'
+    : 'https://api.chalakgo.com'
 const websiteBase =
   window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5174'

@@ -6,7 +6,7 @@ const base =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1"
     ? "http://localhost:5000"
-    : "https://chalakgo.onrender.com";
+    : "https://api.chalakgo.com";
 const request = async (path, options = {}) => {
   const token = sessionStorage.getItem("chalakgo_admin_token");
   const response = await fetch(base + path, {
