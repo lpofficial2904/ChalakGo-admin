@@ -582,7 +582,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic, toggle }) {
             </div>
             <StatusToggle active={pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1)))?.isPublished !== false} onToggle={() => toggle(pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1))) || { title: label, slug: path === '/' ? 'home' : path.slice(1), isPublished: true, statusOnly: true })} />
             <div className="actions">
-              <a href={`${websiteBase}/#${path}`} target="_blank" rel="noreferrer">View</a>
+              <a href={`${websiteBase}${path}`} target="_blank" rel="noreferrer">View</a>
               <button onClick={() => editStatic(label, path)}>Edit</button>
             </div>
           </article>
@@ -657,6 +657,7 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
           <small>CONTENT EDITOR</small>
           <h2>{title}</h2>
           <p>Changes are applied to the website after saving.</p>
+          {item.slug === "terms-and-conditions" && <p>Terms &amp; Conditions appears only in the website footer. Edit the heading, introduction and full content below. Use ?Last Updated: ?? for the date and ?## Section heading? for sections. Keep the URL slug as terms-and-conditions.</p>}
         </div>
         <button className="back" type="button" onClick={back}>
           Back to list

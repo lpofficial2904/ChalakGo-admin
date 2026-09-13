@@ -1,7 +1,8 @@
-// Convert legacy deep links after nginx serves the application shell.
+// Upgrade old HashRouter bookmarks before BrowserRouter starts.
 (function () {
-  const { pathname, search, hash } = window.location;
-  if (pathname === "/" || pathname === "/index.html") return;
-  const route = hash.startsWith("#/") ? hash : "#" + pathname + search + hash;
-  window.history.replaceState(window.history.state, "", "/" + route);
+  const { hash } = window.location;
+  if (!hash.startsWith("#/") || hash.startsWith("#//")) return;
+  const target = new URL(hash.slice(1), window.location.origin);
+  if (target.origin !== window.location.origin) return;
+  window.history.replaceState(window.history.state, "", target.pathname + target.search + target.hash);
 })();

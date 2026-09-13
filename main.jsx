@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter, useLocation } from "react-router-dom";
+import { BrowserRouter, useLocation } from "react-router-dom";
 import AdminPanel from "./AdminPanel";
 import JaipurTourAdmin from "./JaipurTourAdmin";
 import "./styles.css";
@@ -29,7 +29,7 @@ function JaipurTourPlanLink() {
   if (!visible) return null;
   return (
     <a
-      href="/#/jaipur-tour"
+      href="/jaipur-tour"
       aria-label="Manage Jaipur Tour packages"
       className="jaipur-plan-link"
     >
@@ -52,7 +52,7 @@ function AdminApp() {
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <HashRouter>
+    <BrowserRouter>
       <HelmetProvider>
       <Helmet>
         <title>ChalakGo Admin</title>
@@ -62,6 +62,6 @@ createRoot(document.getElementById("root")).render(
       <AdminApp />
     <ToastContainer position="top-right" autoClose={3000} />
       </HelmetProvider>
-    </HashRouter>
+    </BrowserRouter>
   </StrictMode>,
 );
