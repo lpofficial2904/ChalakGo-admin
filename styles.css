@@ -1323,3 +1323,4 @@ button {
     font-size: 14px;
   }
 }
+.request-details{margin-top:14px;display:grid;gap:10px;overflow-wrap:anywhere}.request-details>div{display:grid;grid-template-columns:minmax(120px,1fr) 2fr;gap:14px;border-bottom:1px solid #edf1f7;padding-bottom:8px}.request-details dt{font-size:12px;color:#64748b}.request-details dd{margin:0;font-size:13px;white-space:pre-wrap}.rows .row{align-items:start}

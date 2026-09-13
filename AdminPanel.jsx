@@ -1,3 +1,6 @@
+import { prepareTourPlans } from "./utils/tourPlans.js";
+import AdminAccount from "./AdminAccount.jsx";
+import TourPlansEditor from "./TourPlansEditor.jsx";
 import { API_BASE as apiBase } from "./utils/api.js";
 import { idOf } from './utils/id.js'
 import { useEffect, useState } from 'react'
@@ -21,7 +24,7 @@ const serviceEmpty = {
   detail: '',
   features: '',
   image: '',
-  tourPlans: '',
+  tourPlans: [],
   isActive: true,
 }
 const pageEmpty = {
@@ -44,6 +47,7 @@ const websitePages = [
   ['Fleet', '/fleet'],
   ['Reviews', '/reviews'],
   ['FAQs', '/faqs'],
+  ['Terms & Conditions', '/terms-and-conditions'],
 ]
 
 const blogEmpty = () => ({
@@ -66,7 +70,7 @@ const slugify = (value) =>
 const websiteBase =
   window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5174'
-    : 'https://chalakgoo.netlify.app'
+    : 'https://chalakgo.com'
 const api = async (path, options = {}) => {
   const token = sessionStorage.getItem('chalakgo_admin_token')
   const response = await fetch(`${apiBase}${path}`, {
@@ -196,11 +200,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
           .split('\n')
           .map((x) => x.trim())
           .filter(Boolean)
-        body.tourPlans = Array.isArray(item.tourPlans)
-          ? item.tourPlans
-          : item.tourPlans
-            ? JSON.parse(item.tourPlans)
-            : []
+        body.tourPlans = prepareTourPlans(item.tourPlans || [])
       }
       const itemId = idOf(item._id)
       if (item._id && !itemId) throw Error('Invalid record ID. Refresh the page and try again.')
@@ -246,6 +246,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
     pages: 'Website pages',
     blogs: 'Blog posts',
     settings: 'Brand & contact',
+    account: 'Admin account',
     email: 'Email Notifications',
     whatsapp: 'WhatsApp API',
     reviews: 'Reviews',
@@ -306,6 +307,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             ['pages', 'Pages'],
             ['blogs', 'Blog'],
             ['settings', 'Brand & contact'],
+            ['account', 'Admin account'],
             ['email', 'Email Notifications'],
             ['whatsapp', 'WhatsApp API'],
           ].map(([id, label]) => (
@@ -366,6 +368,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
           <Dashboard services={services} pages={pages} blogs={blogs} go={setTab} />
         )}
         {tab === 'requests' && <RequestsAdmin />}
+        {tab === 'account' && <AdminAccount />}
         {tab === 'reviews' && <ReviewsAdmin embedded />}
         {tab === 'services' && (
           <List
@@ -386,7 +389,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
                 sixToEightRate: item.monthlyRates?.sixToEight || '',
                 eightToTenRate: item.monthlyRates?.eightToTen || '',
                 tenToTwelveRate: item.monthlyRates?.tenToTwelve || '',
-                tourPlans: JSON.stringify(item.tourPlans || [], null, 2),
+                tourPlans: item.tourPlans || [],
               })
               setTab('service-form')
             }}
@@ -473,7 +476,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
               ['Image URL', 'image', false, '', false, true],
               ['Description', 'detail', false, '', true, true],
               ['Features (one per line)', 'features', false, '', true, true],
-              ['Tour plans (JSON)', 'tourPlans', false, '', true, true],
+              ['Tour plans', 'tourPlans', false, '', true, true],
             ]}
             publishedKey="isActive"
           />
@@ -493,7 +496,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
               ['Menu label', 'navigationLabel'],
               ['Hero heading', 'heroTitle'],
               ['Introduction', 'excerpt', false, '', true, true],
-              ['Page content', 'content', false, '', true, true],
+              ['Page content', 'content', false, page.slug === 'terms-and-conditions' ? 'Last Updated: September 2026\n\n## Section heading\nEnter the terms for this section.\n\n## Next section\nEnter more content.' : '', true, true],
             ]}
           />
         )}
@@ -579,7 +582,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic, toggle }) {
             </div>
             <StatusToggle active={pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1)))?.isPublished !== false} onToggle={() => toggle(pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1))) || { title: label, slug: path === '/' ? 'home' : path.slice(1), isPublished: true, statusOnly: true })} />
             <div className="actions">
-              <a href={`${websiteBase}${path}`} target="_blank" rel="noreferrer">View</a>
+              <a href={`${websiteBase}/#${path}`} target="_blank" rel="noreferrer">View</a>
               <button onClick={() => editStatic(label, path)}>Edit</button>
             </div>
           </article>
@@ -660,7 +663,7 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
         </button>
       </div>
       <div className="grid">
-        {fields.map(([label, key, required, prefix, area, wide, type]) => (
+        {fields.map(([label, key, required, prefix, area, wide, type]) => key === "tourPlans" ? <TourPlansEditor key={key} value={item.tourPlans} onChange={value => set("tourPlans", value)} /> : (
           <Field
             key={key}
             label={label}

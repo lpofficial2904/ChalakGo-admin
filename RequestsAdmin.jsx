@@ -1,4 +1,5 @@
 import { API_BASE as base } from "./utils/api.js";
+import { bookingDetails } from "./utils/bookingDetails.js";
 import { useEffect, useState } from "react";
 import "./styles.css";
 
@@ -12,7 +13,7 @@ const api = async (path, options = {}) => {
         ...options.headers,
       },
     }),
-    d = await r.json();
+    d = r.status === 204 ? null : await r.json();
   if (!r.ok) throw Error(d.message);
   return d;
 };
@@ -21,10 +22,24 @@ export default function RequestsAdmin() {
     [items, setItems] = useState([]),
     [error, setError] = useState("");
   useEffect(() => {
-    api(`/api/${tab}/admin`)
-      .then(setItems)
-      .catch((e) => setError(e.message));
+    const controller = new AbortController();
+    setItems([]); setError("");
+    api(`/api/${tab}/admin`, { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) setItems(data); })
+      .catch(e => { if (!controller.signal.aborted) setError(e.message); });
+    return () => controller.abort();
   }, [tab]);
+  const [deleting, setDeleting] = useState(null);
+  const remove = async (item) => {
+    if (!window.confirm('Permanently delete this record? This cannot be undone.')) return;
+    const kind = tab;
+    setDeleting(item._id); setError('');
+    try {
+      await api(`/api/${kind}/admin/${item._id}`, { method: 'DELETE' });
+      setItems(current => current.filter(record => record._id !== item._id));
+    } catch (e) { setError(e.message); }
+    finally { setDeleting(null); }
+  };
   const title =
     tab === "bookings"
       ? (x) => `${x.service} — ${x.fullName}`
@@ -41,7 +56,7 @@ export default function RequestsAdmin() {
   const navigation = (x) => {
     const latitude = x.pickupLatitude ?? x.coordinates?.latitude;
     const longitude = x.pickupLongitude ?? x.coordinates?.longitude;
-    return Number.isFinite(Number(latitude)) &&
+    return latitude != null && longitude != null && latitude !== "" && longitude !== "" && Number.isFinite(Number(latitude)) &&
       Number.isFinite(Number(longitude))
       ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${latitude},${longitude}`)}`
       : "";
@@ -100,6 +115,7 @@ export default function RequestsAdmin() {
               <div className="copy">
                 <b>{title(x)}</b>
                 <small>{sub(x)}</small>
+                <details style={{ marginTop: 12 }}><summary style={{ cursor: "pointer", color: "#2563eb" }}>{tab === "bookings" ? "Booking form details" : "Complete details"}</summary><dl className="request-details">{(tab === "bookings" ? bookingDetails(x) : detailsOf(x)).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>
               </div>
               {tab === "bookings" && navigation(x) && (
                 <a
@@ -122,6 +138,7 @@ export default function RequestsAdmin() {
                 </select>
               )}
               <span className="status live">{x.status || "Registered"}</span>
+              <button className="secondary" style={{ color: "#b91c1c" }} disabled={Boolean(deleting)} onClick={() => remove(x)}>{deleting === x._id ? "Deleting..." : "Delete"}</button>
             </article>
           ))}
           {!items.length && !error && <p className="empty">No records yet.</p>}
@@ -129,4 +146,13 @@ export default function RequestsAdmin() {
       </section>
     </main>
   );
+}
+
+function detailsOf(record, prefix = "") {
+  return Object.entries(record).flatMap(([key, value]) => {
+    if (["_id", "__v", "passwordHash", "otpHash", "otpExpiresAt", "otpAttempts"].includes(key)) return [];
+    const label = prefix + key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, c => c.toUpperCase());
+    if (value && typeof value === "object" && !Array.isArray(value)) return detailsOf(value, label + " / ");
+    return [[label, value == null || value === "" ? "?" : typeof value === "object" ? JSON.stringify(value) : String(value)]];
+  });
 }
