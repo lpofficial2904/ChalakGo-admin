@@ -1,12 +1,9 @@
+import { API_BASE as base } from "./utils/api.js";
 import { useEffect, useState } from "react";
 import "./styles.css";
 import { toast } from "react-toastify";
 
-const base =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? "http://localhost:5000"
-    : "https://api.chalakgo.com";
+
 const empty = {
   customerName: "",
   email: "",

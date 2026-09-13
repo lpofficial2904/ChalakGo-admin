@@ -6,6 +6,7 @@ import JaipurTourAdmin from "./JaipurTourAdmin";
 import "./styles.css";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
+import { Helmet, HelmetProvider } from "react-helmet-async";
 
 function JaipurTourPlanLink() {
   const [visible, setVisible] = useState(false);
@@ -52,8 +53,15 @@ function AdminApp() {
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
+      <HelmetProvider>
+      <Helmet>
+        <title>ChalakGo Admin</title>
+        <meta name="description" content="ChalakGo administration and booking management." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <AdminApp />
-    </BrowserRouter>
     <ToastContainer position="top-right" autoClose={3000} />
+      </HelmetProvider>
+    </BrowserRouter>
   </StrictMode>,
 );

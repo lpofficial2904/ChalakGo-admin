@@ -1,3 +1,4 @@
+import { API_BASE as apiBase } from "./utils/api.js";
 import { idOf } from './utils/id.js'
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
@@ -61,10 +62,7 @@ const slugify = (value) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
-const apiBase =
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:5000'
-    : 'https://api.chalakgo.com'
+
 const websiteBase =
   window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5174'

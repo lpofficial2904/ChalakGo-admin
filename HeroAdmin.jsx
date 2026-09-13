@@ -1,10 +1,7 @@
+import { API_BASE as base } from "./utils/api.js";
 import { useEffect, useState } from "react";
 import "./styles.css";
-const base =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
-    ? "http://localhost:5000"
-  : "https://api.chalakgo.com";
+
 export default function HeroAdmin() {
   const [image, setImage] = useState(""),
     [notice, setNotice] = useState("");
