@@ -2,6 +2,7 @@ import { API_BASE as base } from "./utils/api.js";
 import { useEffect, useState } from "react";
 import "./styles.css";
 import { toast } from "react-toastify";
+import { idOf } from './utils/id.js';
 
 
 const empty = {
@@ -58,6 +59,18 @@ export default function ReviewsAdmin({ embedded = false }) {
     load();
   }, []);
   const set = (key, value) => setReview((old) => ({ ...old, [key]: value }));
+  const [changingStatus, setChangingStatus] = useState(null);
+  const toggleStatus = async item => {
+    const id = idOf(item);
+    setChangingStatus(id);
+    try {
+      const saved = await api(`/api/reviews/${id}`, { method: 'PUT', body: JSON.stringify({ isPublished: !item.isPublished }) });
+      setReviews(items => items.map(value => idOf(value) === id ? saved : value));
+      setReview(current => idOf(current) === id ? { ...current, isPublished: saved.isPublished } : current);
+      toast.success(saved.isPublished ? 'Review is active.' : 'Review is inactive.');
+    } catch (error) { toast.error(error.message); }
+    finally { setChangingStatus(null); }
+  };
   const save = async (event) => {
     event.preventDefault();
     try {
@@ -221,9 +234,7 @@ export default function ReviewsAdmin({ embedded = false }) {
                   {item.company ? ` · ${item.company}` : ""} · {item.message}
                 </small>
               </div>
-              <span className={item.isPublished ? "status live" : "status"}>
-                {item.isPublished ? "Active" : "Inactive"}
-              </span>
+              <button type="button" role="switch" aria-checked={!!item.isPublished} aria-label={`${item.customerName} review status`} disabled={!!changingStatus} className={`status-toggle ${item.isPublished ? 'is-active' : 'is-inactive'}`} onClick={() => toggleStatus(item)}><span className="status-toggle-track" aria-hidden="true"><span /></span>{changingStatus === idOf(item) ? 'Saving...' : item.isPublished ? 'Active' : 'Inactive'}</button>
               <div className="actions">
                 <button onClick={() => setReview(item)}>Edit</button>
                 <button onClick={() => remove(item._id)}>Delete</button>

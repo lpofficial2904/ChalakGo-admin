@@ -1,3 +1,7 @@
+import DashboardSummary from "./DashboardSummary.jsx";
+import PageCopyEditor from "./PageCopyEditor.jsx";
+import PageServicesEditor from './PageServicesEditor.jsx';
+import pageCopyDefaults from "../shared/pageCopy.json";
 import { prepareTourPlans } from "./utils/tourPlans.js";
 import AdminAccount from "./AdminAccount.jsx";
 import TourPlansEditor from "./TourPlansEditor.jsx";
@@ -7,6 +11,8 @@ import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 import './login.css'
 import RequestsAdmin from './RequestsAdmin'
+import ServiceContentEditor from './ServiceContentEditor.jsx'
+import AdminNotifications from './AdminNotifications.jsx'
 import ReviewsAdmin from './ReviewsAdmin'
 
 const serviceEmpty = {
@@ -57,6 +63,7 @@ const blogEmpty = () => ({
   content: '',
   coverImage: '',
   author: 'ChalakGo Team',
+  tags: '', category: '', authorBio: '', coverAlt: '', coverCaption: '', seoTitle: '', seoDescription: '', socialImage: '', isFeatured: false, noindex: false,
   isPublished: true,
   publishedAt: new Date().toISOString().slice(0, 10),
 })
@@ -119,6 +126,9 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
     [page, setPage] = useState(pageEmpty),
     [blog, setBlog] = useState(blogEmpty)
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [requestPeriod, setRequestPeriod] = useState('total')
+  const [requestKind, setRequestKind] = useState('bookings')
+  const [requestSelection, setRequestSelection] = useState(0)
   const load = async () => {
     if (!sessionStorage.getItem('chalakgo_admin_token')) return setReady(true)
     try {
@@ -184,6 +194,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
     event.preventDefault()
     try {
       const body = { ...item, slug: slugify(item.slug), ...(kind === 'page' ? { statusOnly: false } : {}) }
+      if (kind === 'blog') body.tags = [...new Set(String(item.tags || '').split(',').map(tag => tag.trim()).filter(Boolean))];
       if (kind === 'service') {
         body.pricingType = item.pricingType || 'hourly'
         body.vehicleRates = {
@@ -242,6 +253,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
   if (!allowed) return <Login />
   const title = {
     dashboard: 'Dashboard',
+    requests: 'Bookings / Requests',
     services: 'Services',
     pages: 'Website pages',
     blogs: 'Blog posts',
@@ -356,6 +368,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             <small>CONTENT CONTROL CENTER</small>
             <h1>{title}</h1>
           </div>
+          <AdminNotifications onOpen={(kind) => { setRequestKind(kind); setRequestPeriod("total"); setRequestSelection(value => value + 1); setTab('requests'); setMobileMenu(false) }} />
           <b className="avatar">A</b>
         </header>
         {notice && (
@@ -365,9 +378,9 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
           </div>
         )}
         {tab === 'dashboard' && (
-          <Dashboard services={services} pages={pages} blogs={blogs} go={setTab} />
+          <Dashboard onOpen={(kind, period) => { setRequestKind(kind); setRequestPeriod(period); setRequestSelection(value => value + 1); setTab("requests") }} services={services} pages={pages} blogs={blogs} go={setTab} />
         )}
-        {tab === 'requests' && <RequestsAdmin />}
+        {tab === 'requests' && <RequestsAdmin key={requestSelection} initialTab={requestKind} initialPeriod={requestPeriod} />}
         {tab === 'account' && <AdminAccount />}
         {tab === 'reviews' && <ReviewsAdmin embedded />}
         {tab === 'services' && (
@@ -415,7 +428,8 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             remove={(item) => remove('page', item._id, setPages)}
             editStatic={(label, path) => {
               const slug = path === '/' ? 'home' : path.slice(1)
-              setPage(pages.find(item => item.slug === slug) || { ...pageEmpty, title: label, slug, navigationLabel: label })
+              const existing = pages.find(item => item.slug === slug)
+              setPage({ ...pageEmpty, title: label, slug, navigationLabel: label, ...existing, ...(pageCopyDefaults[slug] && (!existing || existing.statusOnly || existing.preserveLayout) ? { preserveLayout: true, copy: { ...pageCopyDefaults[slug], ...(slug === "home" ? { heroImage: settings.heroImage || "" } : {}), ...existing?.copy } } : {}) })
               setTab('page-form')
             }}
           />
@@ -432,6 +446,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             edit={(item) => {
               setBlog({
                 ...item,
+                tags: Array.isArray(item.tags) ? item.tags.join(', ') : item.tags || '',
                 publishedAt: item.publishedAt
                   ? new Date(item.publishedAt).toISOString().slice(0, 10)
                   : '',
@@ -484,6 +499,8 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
         {tab === 'page-form' && (
           <Editor
             title="Page content"
+            services={services}
+            onServiceSaved={result => setServices(current => current.map(item => idOf(item) === idOf(result) ? result : item))}
             item={page}
             setItem={setPage}
             submit={(event) =>
@@ -512,9 +529,17 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
             fields={[
               ['Post title', 'title', true],
               ['URL slug', 'slug', true, '/blog/'],
-              ['Author', 'author'],
+              ['Author', 'author', true],
+              ['Author bio', 'authorBio', false, '', true, true],
+              ['Category', 'category'],
+              ['Tags (comma separated)', 'tags'],
               ['Publish date', 'publishedAt', false, '', false, false, 'date'],
               ['Cover image URL', 'coverImage', false, '', false, true],
+              ['Cover image alt text', 'coverAlt'],
+              ['Cover caption / credit', 'coverCaption'],
+              ['SEO title', 'seoTitle'],
+              ['SEO description', 'seoDescription', false, '', true, true],
+              ['Social sharing image URL', 'socialImage', false, '', false, true],
               ['Introduction', 'excerpt', false, '', true, true],
               ['Article content', 'content', true, '', true, true],
             ]}
@@ -529,14 +554,10 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
     </div>
   )
 }
-function Dashboard({ services, pages, blogs, go }) {
+function Dashboard({ services, pages, blogs, go, onOpen }) {
   return (
     <>
-      <section className="stats">
-        <Stat title="Total services" value={services.length} />
-        <Stat title="Website pages" value={pages.length} />
-        <Stat title="Blog posts" value={blogs.length} />
-      </section>
+      <DashboardSummary onOpen={onOpen} />
       <section className="dash-grid">
         <article className="welcome">
           <small>WELCOME BACK</small>
@@ -566,7 +587,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic, toggle }) {
         <div>
           <small>MANAGE CONTENT</small>
           <h2>All website pages</h2>
-          <p>Static pages are listed below. Custom pages can be edited from this panel.</p>
+          <p>Preview page content below, then select Edit to update it.</p>
         </div>
         <button className="primary" onClick={add}>
           + Add page
@@ -578,7 +599,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic, toggle }) {
             <i className="icon">•</i>
             <div className="copy">
               <b>{label}</b>
-              <small>{path}</small>
+              <small>{path}</small><details className="page-content-preview"><summary>Show page content</summary><div>{Object.values(pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1)))?.copy || pageCopyDefaults[path === '/' ? 'home' : path.slice(1)] || {}).map((text,index)=><p key={index}>{text}</p>)}<p>{pages.find(item=>item.slug === (path === '/' ? 'home' : path.slice(1)))?.content}</p></div></details>
             </div>
             <StatusToggle active={pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1)))?.isPublished !== false} onToggle={() => toggle(pages.find(item => item.slug === (path === '/' ? 'home' : path.slice(1))) || { title: label, slug: path === '/' ? 'home' : path.slice(1), isPublished: true, statusOnly: true })} />
             <div className="actions">
@@ -587,7 +608,7 @@ function WebsitePages({ pages, add, edit, remove, editStatic, toggle }) {
             </div>
           </article>
         ))}
-        {pages.map((item) => (
+        {pages.filter(item => !websitePages.some(([,path]) => item.slug === (path === '/' ? 'home' : path.slice(1)))).map((item) => (
           <article className="row" key={idOf(item)}>
             <i className="icon">•</i>
             <div className="copy">
@@ -636,7 +657,7 @@ function List({ title, action, items, add, edit, remove, label, sub, live, toggl
               <b>{label(item)}</b>
               <small>{sub(item)}</small>
             </div>
-            <StatusToggle active={live(item)} onToggle={() => toggle(item)} />
+            <StatusToggle label={`${label(item)} status`} active={live(item)} onToggle={() => toggle(item)} />
             <div className="actions">
               <button onClick={() => edit(item)}>Edit</button>
               <button onClick={() => remove(item)}>Delete</button>
@@ -648,8 +669,8 @@ function List({ title, action, items, add, edit, remove, label, sub, live, toggl
     </section>
   )
 }
-function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'isPublished' }) {
-  const set = (key, value) => setItem({ ...item, [key]: value })
+function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'isPublished', services = [], onServiceSaved }) {
+  const set = (key, value) => setItem(current => ({ ...current, [key]: value }))
   return (
     <form className="card editor" onSubmit={submit}>
       <div className="form-head">
@@ -664,7 +685,7 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
         </button>
       </div>
       <div className="grid">
-        {fields.map(([label, key, required, prefix, area, wide, type]) => key === "tourPlans" ? <TourPlansEditor key={key} value={item.tourPlans} onChange={value => set("tourPlans", value)} /> : (
+        {fields.filter(([,key]) => !item.preserveLayout || !['heroTitle','excerpt','content','slug'].includes(key)).map(([label, key, required, prefix, area, wide, type]) => key === 'pricingType' ? <label className="field" key={key}><span>{label}</span><select value={item.pricingType || 'hourly'} onChange={event => set(key, event.target.value)}>{['hourly', 'daily', 'distance', 'monthly', 'fixed'].map(value => <option key={value} value={value}>{value}</option>)}</select></label> : key === "tourPlans" ? (item.slug === 'jaipur-tour' || item.tourPlans?.length ? <TourPlansEditor key={key} value={item.tourPlans} onChange={value => set("tourPlans", value)} /> : null) : (
           <Field
             key={key}
             label={label}
@@ -681,11 +702,16 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
           />
         ))}
       </div>
+      {item.preserveLayout && <PageCopyEditor page={item} onChange={copy => set("copy", copy)} />}
+      {item.preserveLayout && item.slug === 'home' && <Field label="Home banner image URL" wide value={item.copy?.heroImage} onChange={heroImage => set('copy', { ...item.copy, heroImage })} />}
+      {item.preserveLayout && ['home', 'pricing'].includes(item.slug) && <PageServicesEditor services={services} onSaved={onServiceSaved} />}
+      {publishedKey === 'isActive' && <ServiceContentEditor service={item} onChange={(pageContent, content = item.content) => setItem(current => ({ ...current, pageContent, content }))} />}
       <Toggle
         checked={item[publishedKey]}
         onChange={(value) => set(publishedKey, value)}
         label="Publish on website"
       />
+      {title === "Blog post" && <><Toggle checked={!!item.isFeatured} onChange={value => set("isFeatured", value)} label="Featured article" /><Toggle checked={!!item.noindex} onChange={value => set("noindex", value)} label="Hide article from search engines" /><p>Switch off Publish on website to save a draft. Use ## headings and blank lines in article content.</p></>}
       <div className="form-footer">
         <button className="secondary" type="button" onClick={back}>
           Cancel
@@ -1126,7 +1152,7 @@ function Login() {
   )
 }
 
-function StatusToggle({ active, onToggle }) {
+function StatusToggle({ active, onToggle, label = 'Publication status' }) {
  const [pending, setPending] = useState(false)
- return <button type="button" role="switch" aria-checked={!!active} aria-label="Page status" disabled={pending} className={active ? 'status live' : 'status'} onClick={async () => { setPending(true); try { await onToggle() } finally { setPending(false) } }}>{pending ? 'Saving...' : active ? 'Status: Active' : 'Status: Inactive'}</button>
+ return <button type="button" role="switch" aria-checked={!!active} aria-label={label} aria-busy={pending} disabled={pending} className={`status-toggle ${active ? "is-active" : "is-inactive"}`} onClick={async () => { setPending(true); try { await onToggle() } finally { setPending(false) } }}><span className="status-toggle-track" aria-hidden="true"><span /></span><span>{pending ? "Saving..." : active ? "Active" : "Inactive"}</span></button>
 }

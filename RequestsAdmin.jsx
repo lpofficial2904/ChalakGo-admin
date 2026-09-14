@@ -1,6 +1,9 @@
+import { periodStarts } from '../backend/utils/dashboard.js';
 import { API_BASE as base } from "./utils/api.js";
 import { bookingDetails } from "./utils/bookingDetails.js";
 import { useEffect, useState } from "react";
+import { toast } from 'react-toastify';
+import { idOf } from './utils/id.js';
 import "./styles.css";
 
 const api = async (path, options = {}) => {
@@ -17,27 +20,37 @@ const api = async (path, options = {}) => {
   if (!r.ok) throw Error(d.message);
   return d;
 };
-export default function RequestsAdmin() {
-  const [tab, setTab] = useState("bookings"),
+export default function RequestsAdmin({ initialTab = "bookings", initialPeriod = "total" }) {
+  const [period, setPeriod] = useState(initialPeriod);
+  const [tab, setTab] = useState(initialTab),
     [items, setItems] = useState([]),
     [error, setError] = useState("");
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
   useEffect(() => {
     const controller = new AbortController();
     setItems([]); setError("");
-    api(`/api/${tab}/admin`, { signal: controller.signal })
-      .then(data => { if (!controller.signal.aborted) setItems(data); })
+    const refresh = () => api(`/api/${tab}/admin`, { signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) { setItems(data.map(item => ({ ...item, _id: idOf(item) }))); setError(''); } })
       .catch(e => { if (!controller.signal.aborted) setError(e.message); });
-    return () => controller.abort();
+    refresh();
+    window.addEventListener('admin-requests-updated', refresh);
+    return () => { controller.abort(); window.removeEventListener('admin-requests-updated', refresh); };
   }, [tab]);
+  const now = new Date();
+  const start = periodStarts(now)[period];
+  const filtered = tab === 'users' || !start ? items : items.filter(item => new Date(item.createdAt) >= start && new Date(item.createdAt) <= now);
   const [deleting, setDeleting] = useState(null);
   const remove = async (item) => {
-    if (!window.confirm('Permanently delete this record? This cannot be undone.')) return;
+    if (deleting) return;
+    if (!window.confirm(`Permanently delete ${item.fullName || item.name || 'this record'}? This cannot be undone.`)) return;
     const kind = tab;
     setDeleting(item._id); setError('');
     try {
       await api(`/api/${kind}/admin/${item._id}`, { method: 'DELETE' });
       setItems(current => current.filter(record => record._id !== item._id));
-    } catch (e) { setError(e.message); }
+      window.dispatchEvent(new CustomEvent('admin-request-deleted', { detail: { kind, id: item._id } }));
+      toast.success('Record deleted successfully.');
+    } catch (e) { setError(e.message); toast.error(e.message); }
     finally { setDeleting(null); }
   };
   const title =
@@ -91,26 +104,30 @@ export default function RequestsAdmin() {
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button
             className={tab === "bookings" ? "primary" : "secondary"}
+            disabled={Boolean(deleting)}
             onClick={() => setTab("bookings")}
           >
             Bookings
           </button>
           <button
             className={tab === "contacts" ? "primary" : "secondary"}
+            disabled={Boolean(deleting)}
             onClick={() => setTab("contacts")}
           >
             Contacts
           </button>
           <button
             className={tab === "users" ? "primary" : "secondary"}
+            disabled={Boolean(deleting)}
             onClick={() => setTab("users")}
           >
             Users
           </button>
         </div>
+        {tab !== 'users' && <label className="field" style={{ marginTop: 20 }}><span>Filter requests (India time)</span><select value={period} onChange={event => setPeriod(event.target.value)}><option value="total">All time</option><option value="today">Daily ? Today</option><option value="week">Weekly ? This week</option><option value="month">Monthly ? This month</option></select><small>{filtered.length} requests</small></label>}
         {error && <p className="empty">{error}</p>}
         <div className="rows">
-          {items.map((x) => (
+          {filtered.map((x) => (
             <article className="row" key={x._id}>
               <div className="copy">
                 <b>{title(x)}</b>
@@ -138,10 +155,10 @@ export default function RequestsAdmin() {
                 </select>
               )}
               <span className="status live">{x.status || "Registered"}</span>
-              <button className="secondary" style={{ color: "#b91c1c" }} disabled={Boolean(deleting)} onClick={() => remove(x)}>{deleting === x._id ? "Deleting..." : "Delete"}</button>
+              <button type="button" className="secondary request-delete" aria-label={`Delete ${x.fullName || x.name || 'record'}`} disabled={Boolean(deleting)} onClick={() => remove(x)}>{deleting === x._id ? "Deleting..." : "Delete"}</button>
             </article>
           ))}
-          {!items.length && !error && <p className="empty">No records yet.</p>}
+          {!filtered.length && !error && <p className="empty">No records yet.</p>}
         </div>
       </section>
     </main>
