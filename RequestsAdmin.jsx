@@ -1,4 +1,4 @@
-import { periodStarts } from '../backend/utils/dashboard.js';
+import { periodStarts } from './utils/dashboard.js';
 import { API_BASE as base } from "./utils/api.js";
 import { bookingDetails } from "./utils/bookingDetails.js";
 import { useEffect, useState } from "react";

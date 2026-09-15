@@ -1,4 +1,4 @@
-import { pageCounts, publicationCounts, periodStarts } from '../backend/utils/dashboard.js';
+import { pageCounts, publicationCounts, periodStarts } from './utils/dashboard.js';
 import { useEffect, useState } from 'react';
 import { API_BASE } from './utils/api.js';
 
