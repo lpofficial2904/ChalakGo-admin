@@ -1,7 +1,7 @@
 import DashboardSummary from "./DashboardSummary.jsx";
 import PageCopyEditor from "./PageCopyEditor.jsx";
 import PageServicesEditor from './PageServicesEditor.jsx';
-import pageCopyDefaults from "../shared/pageCopy.json";
+import pageCopyDefaults from "./shared/pageCopy.json";
 import { prepareTourPlans } from "./utils/tourPlans.js";
 import AdminAccount from "./AdminAccount.jsx";
 import TourPlansEditor from "./TourPlansEditor.jsx";

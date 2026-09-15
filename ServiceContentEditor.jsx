@@ -1,4 +1,4 @@
-import { contentOf } from '../shared/serviceContent.js'
+import { contentOf } from './shared/serviceContent.js'
 
 export default function ServiceContentEditor({ service, onChange }) {
   const content = contentOf(service)
