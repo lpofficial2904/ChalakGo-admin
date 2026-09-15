@@ -43,6 +43,7 @@ const slugify = (v) =>
 
 function File({ value, setValue }) {
   const [status, setStatus] = useState("");
+
   return (
     <label className="field wide">
       <span>Cover image — upload from computer</span>
