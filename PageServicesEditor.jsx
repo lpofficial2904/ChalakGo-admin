@@ -1,3 +1,5 @@
+import DriverPricingEditor from "./DriverPricingEditor.jsx";
+import { validateDriverPricing } from "../shared/driverPricing.js";
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { API_BASE } from './utils/api.js';
@@ -17,6 +19,7 @@ function ServiceCard({ service, onSaved }) {
     setSaving(true);
     try {
       const body = { name: draft.name, eyebrow: draft.eyebrow, detail: draft.detail, price: draft.price, tourPlans: prepareTourPlans(draft.tourPlans || []) };
+      if (draft.slug === 'driver-only') body.driverPricing = validateDriverPricing(draft.driverPricing);
       for (const group of ['vehicleRates', 'monthlyRates']) if (draft[group]) {
         body[group] = {};
         for (const [key, value] of Object.entries(draft[group])) {
@@ -36,6 +39,7 @@ function ServiceCard({ service, onSaved }) {
     <label className="field wide"><span>Description</span><textarea value={draft.detail || ''} onChange={event => setDraft({ ...draft, detail: event.target.value })} /></label>
     {(draft.pricingType === 'distance' || draft.slug === 'car-driver') && <>{field('SUV extra rate/km', 'suv', 'vehicleRates')}{field('Hatchback extra rate/km', 'hatchback', 'vehicleRates')}{field('Traveller rate/km', 'traveller', 'vehicleRates')}</>}
     {(draft.pricingType === 'monthly' || draft.slug === 'permanent-driver') && <>{field('6–8 hours monthly rate', 'sixToEight', 'monthlyRates')}{field('8–10 hours monthly rate', 'eightToTen', 'monthlyRates')}{field('10–12 hours monthly rate', 'tenToTwelve', 'monthlyRates')}</>}
+    {draft.slug === 'driver-only' && <DriverPricingEditor value={draft.driverPricing} onChange={driverPricing => setDraft({ ...draft, driverPricing })} />}
     {(draft.slug === 'jaipur-tour' || draft.tourPlans?.length > 0) && <TourPlansEditor value={draft.tourPlans || []} onChange={tourPlans => setDraft({ ...draft, tourPlans })} />}
   </div><button type="button" className="primary" onClick={save}>{saving ? 'Saving...' : 'Save service & pricing'}</button></fieldset></details>;
 }

@@ -1,3 +1,5 @@
+import DriverPricingEditor from "./DriverPricingEditor.jsx";
+import { validateDriverPricing } from "../shared/driverPricing.js";
 import DashboardSummary from "./DashboardSummary.jsx";
 import PageCopyEditor from "./PageCopyEditor.jsx";
 import PageServicesEditor from './PageServicesEditor.jsx';
@@ -196,6 +198,7 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
       const body = { ...item, slug: slugify(item.slug), ...(kind === 'page' ? { statusOnly: false } : {}) }
       if (kind === 'blog') body.tags = [...new Set(String(item.tags || '').split(',').map(tag => tag.trim()).filter(Boolean))];
       if (kind === 'service') {
+        if (item.slug === 'driver-only') body.driverPricing = validateDriverPricing(item.driverPricing);
         body.pricingType = item.pricingType || 'hourly'
         body.vehicleRates = {
           suv: Number(item.suvRate) || undefined,
@@ -705,6 +708,7 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
       {item.preserveLayout && <PageCopyEditor page={item} onChange={copy => set("copy", copy)} />}
       {item.preserveLayout && item.slug === 'home' && <Field label="Home banner image URL" wide value={item.copy?.heroImage} onChange={heroImage => set('copy', { ...item.copy, heroImage })} />}
       {item.preserveLayout && ['home', 'pricing'].includes(item.slug) && <PageServicesEditor services={services} onSaved={onServiceSaved} />}
+      {publishedKey === 'isActive' && item.slug === 'driver-only' && <DriverPricingEditor value={item.driverPricing} onChange={value => set('driverPricing', value)} />}
       {publishedKey === 'isActive' && <ServiceContentEditor service={item} onChange={(pageContent, content = item.content) => setItem(current => ({ ...current, pageContent, content }))} />}
       <Toggle
         checked={item[publishedKey]}

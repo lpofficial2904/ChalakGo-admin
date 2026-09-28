@@ -79,7 +79,7 @@ export default function HeroAdmin() {
               marginTop: 18,
             }}
           />
-        )}
+        )}   
         {notice && <p className="empty">{notice}</p>}
       </section>
     </main>
