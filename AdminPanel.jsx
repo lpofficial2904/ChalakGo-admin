@@ -1,5 +1,5 @@
 import DriverPricingEditor from "./DriverPricingEditor.jsx";
-import { validateDriverPricing } from "../shared/driverPricing.js";
+import { validateDriverPricing } from "./shared/driverPricing.js";
 import DashboardSummary from "./DashboardSummary.jsx";
 import PageCopyEditor from "./PageCopyEditor.jsx";
 import PageServicesEditor from './PageServicesEditor.jsx';

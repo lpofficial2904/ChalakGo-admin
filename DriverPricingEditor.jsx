@@ -1,4 +1,4 @@
-import { driverPricing } from "../shared/driverPricing.js";
+import { driverPricing } from "./shared/driverPricing.js";
 
 export default function DriverPricingEditor({ value, onChange }) {
   const pricing = driverPricing(value);

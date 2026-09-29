@@ -1,5 +1,5 @@
 import DriverPricingEditor from "./DriverPricingEditor.jsx";
-import { validateDriverPricing } from "../shared/driverPricing.js";
+import { validateDriverPricing } from "./shared/driverPricing.js";
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { API_BASE } from './utils/api.js';
