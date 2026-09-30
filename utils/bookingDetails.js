@@ -1,3 +1,11 @@
+export function formatBookingEstimate(booking) {
+  const value = booking.totalFare;
+  if (value !== undefined && value !== null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0) {
+    return 'Rs. ' + Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+  return booking.tourPlanPrice ? String(booking.tourPlanPrice) : 'Not calculated';
+}
+
 const first = (...values) => values.find(value => value !== undefined && value !== null && value !== "");
 
 export function bookingDetails(booking) {
@@ -9,6 +17,7 @@ export function bookingDetails(booking) {
     ["Email address", booking.email],
     ["Service", booking.service],
     ["Car type", booking.carType],
+    ["TOTAL ESTIMATE", formatBookingEstimate(booking)],
     ["Duration / tour plan", first(booking.duration, booking.tourPlanDays ? `${booking.tourPlanDays} day tour` : undefined)],
     ["Trip distance (km)", booking.distanceKm],
     ["Start date & time", dateTime(booking.startDateTime, booking.startDate, booking.startTime)],
