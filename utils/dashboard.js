@@ -24,7 +24,8 @@ export function bookingAmounts(bookings, now = new Date()) {
     return { ...empty(), start: start.toISOString(), date: new Date(start.getTime() + 330 * 60000).toISOString().slice(0, 10) };
   });
   for (const booking of bookings) {
-    const created = new Date(booking.createdAt).getTime();
+    if (booking.status !== 'completed') continue;
+    const created = new Date(booking.completedAt || booking.statusUpdatedAt || booking.createdAt).getTime();
     if (!Number.isFinite(created) || created > now.getTime()) continue;
     const fare = booking.totalFare;
     const valid = (typeof fare === 'number' || (typeof fare === 'string' && fare.trim() !== '')) && Number.isFinite(Number(fare)) && Number(fare) >= 0;

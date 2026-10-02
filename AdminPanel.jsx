@@ -14,6 +14,7 @@ import { toast } from 'react-toastify'
 import './login.css'
 import RequestsAdmin from './RequestsAdmin'
 import ServiceContentEditor from './ServiceContentEditor.jsx'
+import CabPlansEditor, { cabPlansWithDefaults } from './CabPlansEditor.jsx'
 import AdminNotifications from './AdminNotifications.jsx'
 import ReviewsAdmin from './ReviewsAdmin'
 
@@ -33,6 +34,7 @@ const serviceEmpty = {
   features: '',
   image: '',
   tourPlans: [],
+  cabPlans: [],
   isActive: true,
 }
 const pageEmpty = {
@@ -205,6 +207,10 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
           hatchback: Number(item.hatchbackRate) || undefined,
         }
         body.vehicleRates.traveller = Number(item.travellerRate) || undefined
+        if (item.pricingType === 'distance' || item.slug === 'car-driver') {
+          body.cabPlans = cabPlansWithDefaults(item.cabPlans).map(plan => ({ ...plan, baseFare: Number(plan.baseFare), includedKm: Number(plan.includedKm), ratePerKm: Number(plan.ratePerKm) }))
+          body.vehicleRates = Object.fromEntries(body.cabPlans.map(plan => [plan.key, plan.ratePerKm]))
+        }
         body.monthlyRates = {
           sixToEight: Number(item.sixToEightRate) || undefined,
           eightToTen: Number(item.eightToTenRate) || undefined,
@@ -484,9 +490,6 @@ export default function AdminPanel({ initialTab = 'dashboard' }) {
               ['URL slug', 'slug', true, '/services/'],
               ['Price', 'price'],
               ['Pricing type', 'pricingType'],
-              ['SUV extra rate/km after 250 km (₹3,500 flat)', 'suvRate'],
-              ['Hatchback extra rate/km after 250 km (₹3,000 flat)', 'hatchbackRate'],
-              ['Haravan Traveller rate per km', 'travellerRate'],
               ['6–8 hours monthly rate', 'sixToEightRate'],
               ['8–10 hours monthly rate', 'eightToTenRate'],
               ['10–12 hours monthly rate', 'tenToTwelveRate'],
@@ -688,7 +691,7 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
         </button>
       </div>
       <div className="grid">
-        {fields.filter(([,key]) => !item.preserveLayout || !['heroTitle','excerpt','content','slug'].includes(key)).map(([label, key, required, prefix, area, wide, type]) => key === 'pricingType' ? <label className="field" key={key}><span>{label}</span><select value={item.pricingType || 'hourly'} onChange={event => set(key, event.target.value)}>{['hourly', 'daily', 'distance', 'monthly', 'fixed'].map(value => <option key={value} value={value}>{value}</option>)}</select></label> : key === "tourPlans" ? (item.slug === 'jaipur-tour' || item.tourPlans?.length ? <TourPlansEditor key={key} value={item.tourPlans} onChange={value => set("tourPlans", value)} /> : null) : (
+        {fields.filter(([,key]) => (!item.preserveLayout || !['heroTitle','excerpt','content','slug'].includes(key)) && !(key === 'price' && ['driver-only', 'car-driver', 'permanent-driver', 'jaipur-tour'].includes(item.slug))).map(([label, key, required, prefix, area, wide, type]) => key === 'pricingType' ? <label className="field" key={key}><span>{label}</span><select value={item.pricingType || 'hourly'} onChange={event => set(key, event.target.value)}>{['hourly', 'daily', 'distance', 'monthly', 'fixed'].map(value => <option key={value} value={value}>{value}</option>)}</select></label> : key === "tourPlans" ? (item.slug === 'jaipur-tour' || item.tourPlans?.length ? <TourPlansEditor key={key} value={item.tourPlans} onChange={value => set("tourPlans", value)} /> : null) : (
           <Field
             key={key}
             label={label}
@@ -709,6 +712,7 @@ function Editor({ title, item, setItem, submit, back, fields, publishedKey = 'is
       {item.preserveLayout && item.slug === 'home' && <Field label="Home banner image URL" wide value={item.copy?.heroImage} onChange={heroImage => set('copy', { ...item.copy, heroImage })} />}
       {item.preserveLayout && ['home', 'pricing'].includes(item.slug) && <PageServicesEditor services={services} onSaved={onServiceSaved} />}
       {publishedKey === 'isActive' && item.slug === 'driver-only' && <DriverPricingEditor value={item.driverPricing} onChange={value => set('driverPricing', value)} />}
+      {publishedKey === 'isActive' && (item.pricingType === 'distance' || item.slug === 'car-driver') && <CabPlansEditor value={item.cabPlans} onChange={value => set('cabPlans', value)} />}
       {publishedKey === 'isActive' && <ServiceContentEditor service={item} onChange={(pageContent, content = item.content) => setItem(current => ({ ...current, pageContent, content }))} />}
       <Toggle
         checked={item[publishedKey]}

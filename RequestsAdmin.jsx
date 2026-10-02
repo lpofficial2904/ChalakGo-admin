@@ -16,8 +16,9 @@ const api = async (path, options = {}) => {
         ...options.headers,
       },
     }),
-    d = r.status === 204 ? null : await r.json();
-  if (!r.ok) throw Error(d.message);
+    contentType = r.headers.get('content-type') || '',
+    d = r.status === 204 ? null : contentType.includes('application/json') ? await r.json() : { message: (await r.text()).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() };
+  if (!r.ok) throw Error(d?.message || `Request failed (${r.status}).`);
   return d;
 };
 export default function RequestsAdmin({ initialTab = "bookings", initialPeriod = "total" }) {
@@ -46,6 +47,7 @@ export default function RequestsAdmin({ initialTab = "bookings", initialPeriod =
   const dated = tab === 'users' || !start ? items : items.filter(item => new Date(item.createdAt) >= start && new Date(item.createdAt) <= now);
   const filtered = dated.filter(item => [item.fullName, item.name, item.phone, item.mobile, item.email, item.bookingId, item.service, item.pickupAddress, item.pickupLocation].filter(Boolean).join(' ').toLowerCase().includes(search.trim().toLowerCase()));
   const [deleting, setDeleting] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(null);
   const remove = async (records) => {
     if (deleting || !records.length) return;
     const description = records.length === 1 ? records[0].fullName || records[0].name || 'this record' : records.length + ' selected records';
@@ -137,6 +139,27 @@ export default function RequestsAdmin({ initialTab = "bookings", initialPeriod =
       setError(e.message);
     }
   };
+  const updateBookingStatus = async (booking, status) => {
+    if (updatingStatus) return;
+    setUpdatingStatus(booking._id);
+    setError('');
+    try {
+      const updated = await api(`/api/bookings/admin/${booking._id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const normalized = { ...updated, _id: idOf(updated) };
+      setItems(current => current.map(item => item._id === booking._id ? normalized : item));
+      window.dispatchEvent(new CustomEvent('admin-requests-updated'));
+      toast.success(`Booking marked ${status === 'completed' ? 'Completed' : status === 'cancelled' ? 'Cancelled' : 'Pending'}.`);
+    } catch (e) {
+      setError(e.message);
+      toast.error(e.message);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
   return (
     <section className="requests-page" aria-label="Customer requests">
       <header className="requests-heading">
@@ -165,7 +188,7 @@ export default function RequestsAdmin({ initialTab = "bookings", initialPeriod =
               <div className="request-card-header">
                 <label className="request-check"><input type="checkbox" aria-label={'Select ' + (x.fullName || x.name || 'record')} checked={selected.includes(x._id)} disabled={Boolean(deleting)} onChange={() => toggleSelected(x._id)} /></label>
                 <div className="request-identity"><h3>{x.fullName || x.name || 'Customer'}</h3><span>{tab === 'bookings' ? x.service : tab === 'contacts' ? 'Contact enquiry' : 'Customer account'}{x.bookingId ? ' ? ' + x.bookingId : ''}</span></div>
-                <span className="request-status">{x.status || (tab === 'bookings' ? 'Booking received' : tab === 'contacts' ? 'Enquiry received' : 'Registered')}</span>
+                {tab === 'bookings' ? <label className={`request-status-control is-${x.status || 'pending'}`}><span>Status</span><select aria-label={`Status for ${x.bookingId || x.fullName}`} value={x.status || 'pending'} disabled={Boolean(deleting) || updatingStatus === x._id} onChange={event => updateBookingStatus(x, event.target.value)}><option value="pending">Pending</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label> : <span className="request-status">{tab === 'contacts' ? 'Enquiry received' : 'Registered'}</span>}
                 <RequestActions disabled={Boolean(deleting)} onDelete={() => remove([x])} />
               </div>
               <div className="request-overview">

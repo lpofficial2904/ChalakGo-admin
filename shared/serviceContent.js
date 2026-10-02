@@ -1,4 +1,16 @@
 export const serviceContentDefaults = {
+  'car-driver': {
+    cabPlansTitle: 'Select Cab Pricing Plan',
+    cabPlansDescription: 'Choose your vehicle below to start booking. Your fare updates with the trip distance.',
+    cabChangePlanLabel: 'Change plan',
+    cabSelectPlanLabel: 'Select Plan',
+    cabSelectedLabel: 'Selected',
+    cabUpToLabel: 'up to',
+    cabThenLabel: 'Then',
+    cabKmLabel: 'km',
+    cabExtraKmLabel: 'extra km',
+    cabDistanceChargeNote: 'charged by trip distance',
+  },
   'permanent-driver': {
     sectionEyebrow: 'PERMANENT DRIVER HIRE',
     sectionTitle: 'Hire a permanent driver for your daily routine.',
